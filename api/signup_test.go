@@ -9,7 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gofrs/uuid"
+	"fmt"
+
 	jwt "github.com/golang-jwt/jwt/v4"
 	"github.com/netlify/gotrue/conf"
 	"github.com/netlify/gotrue/models"
@@ -23,7 +24,7 @@ type SignupTestSuite struct {
 	API    *API
 	Config *conf.Configuration
 
-	instanceID uuid.UUID
+	instanceID int64
 }
 
 func TestSignup(t *testing.T) {
@@ -94,7 +95,7 @@ func (ts *SignupTestSuite) TestWebhookTriggered() {
 		})
 		assert.NoError(err)
 		assert.True(token.Valid)
-		assert.Equal(ts.instanceID.String(), claims.Subject) // not configured for multitenancy
+		assert.Equal(fmt.Sprintf("%d", ts.instanceID), claims.Subject) // not configured for multitenancy
 		assert.Equal("gotrue", claims.Issuer)
 		assert.WithinDuration(time.Now(), claims.IssuedAt.Time, 5*time.Second)
 
@@ -108,7 +109,7 @@ func (ts *SignupTestSuite) TestWebhookTriggered() {
 
 		assert.Equal(3, len(data))
 		assert.Equal("validate", data["event"])
-		assert.Equal(ts.instanceID.String(), data["instance_id"])
+		assert.Equal(fmt.Sprintf("%d", ts.instanceID), data["instance_id"])
 
 		u, ok := data["user"].(map[string]interface{})
 		require.True(ok)
@@ -235,7 +236,7 @@ func (ts *SignupTestSuite) TestVerifySignup() {
 	user, err := models.NewUser(ts.instanceID, "test@example.com", "testing", ts.Config.JWT.Aud, nil)
 	user.ConfirmationToken = "asdf3"
 	require.NoError(ts.T(), err)
-	require.NoError(ts.T(), ts.API.db.Create(user))
+	require.NoError(ts.T(), user.Create(ts.API.db))
 
 	// Find test user
 	u, err := models.FindUserByEmailAndAudience(ts.API.db, ts.instanceID, "test@example.com", ts.Config.JWT.Aud)

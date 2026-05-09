@@ -1,17 +1,18 @@
 package metering
 
 import (
-	"github.com/gofrs/uuid"
+	"fmt"
+
 	"github.com/sirupsen/logrus"
 )
 
 var logger = logrus.StandardLogger().WithField("metering", true)
 
-func RecordLogin(loginType string, userID, instanceID uuid.UUID) {
+func RecordLogin(loginType string, userID, instanceID int64) {
 	logger.WithFields(logrus.Fields{
 		"action":       "login",
 		"login_method": loginType,
-		"instance_id":  instanceID.String(),
-		"user_id":      userID.String(),
+		"instance_id":  fmt.Sprintf("%d", instanceID),
+		"user_id":      fmt.Sprintf("%d", userID),
 	}).Info("Login")
 }

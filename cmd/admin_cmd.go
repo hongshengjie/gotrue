@@ -1,7 +1,10 @@
 package cmd
 
 import (
-	"github.com/gofrs/uuid"
+	"context"
+	"strconv"
+
+	crudusers "github.com/netlify/gotrue/crud/users"
 	"github.com/netlify/gotrue/conf"
 	"github.com/netlify/gotrue/models"
 	"github.com/netlify/gotrue/storage"
@@ -61,13 +64,15 @@ var adminDeleteUserCmd = cobra.Command{
 }
 
 func adminCreateUser(globalConfig *conf.GlobalConfiguration, config *conf.Configuration, args []string) {
-	iid := uuid.Must(uuid.FromString(instanceID))
+	iid, err := strconv.ParseInt(instanceID, 10, 64)
+	if err != nil {
+		logrus.Fatalf("Invalid instance ID: %+v", err)
+	}
 
 	db, err := storage.Dial(globalConfig)
 	if err != nil {
 		logrus.Fatalf("Error opening database: %+v", err)
 	}
-	defer db.Close()
 
 	aud := getAudience(config)
 	if exists, err := models.IsDuplicatedEmail(db, iid, args[0], aud); exists {
@@ -84,7 +89,7 @@ func adminCreateUser(globalConfig *conf.GlobalConfiguration, config *conf.Config
 
 	err = db.Transaction(func(tx *storage.Connection) error {
 		var terr error
-		if terr = tx.Create(user); terr != nil {
+		if terr = user.Create(tx); terr != nil {
 			return terr
 		}
 
@@ -113,24 +118,30 @@ func adminCreateUser(globalConfig *conf.GlobalConfiguration, config *conf.Config
 }
 
 func adminDeleteUser(globalConfig *conf.GlobalConfiguration, config *conf.Configuration, args []string) {
-	iid := uuid.Must(uuid.FromString(instanceID))
+	iid, err := strconv.ParseInt(instanceID, 10, 64)
+	if err != nil {
+		logrus.Fatalf("Invalid instance ID: %+v", err)
+	}
 
 	db, err := storage.Dial(globalConfig)
 	if err != nil {
 		logrus.Fatalf("Error opening database: %+v", err)
 	}
-	defer db.Close()
 
 	user, err := models.FindUserByEmailAndAudience(db, iid, args[0], getAudience(config))
 	if err != nil {
-		userID := uuid.Must(uuid.FromString(args[0]))
+		userID, parseErr := strconv.ParseInt(args[0], 10, 64)
+		if parseErr != nil {
+			logrus.Fatalf("Error finding user (%s): %+v", args[0], err)
+		}
 		user, err = models.FindUserByInstanceIDAndID(db, iid, userID)
 		if err != nil {
-			logrus.Fatalf("Error finding user (%s): %+v", userID, err)
+			logrus.Fatalf("Error finding user (%s): %+v", args[0], err)
 		}
 	}
 
-	if err = db.Destroy(user); err != nil {
+	ctx := context.Background()
+	if _, err = crudusers.Delete(db.DB()).Where(crudusers.IdOp.EQ(user.ID)).Exec(ctx); err != nil {
 		logrus.Fatalf("Error removing user (%s): %+v", args[0], err)
 	}
 

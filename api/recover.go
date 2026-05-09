@@ -39,7 +39,7 @@ func (a *API) Recover(w http.ResponseWriter, r *http.Request) error {
 		return internalServerError("Database error finding user").WithInternalError(err)
 	}
 
-	if user.RecoverySentAt != nil && !user.RecoverySentAt.Add(config.SMTP.MaxFrequency).Before(time.Now()) {
+	if user.RecoverySentAt.Year() > 2000 && !user.RecoverySentAt.Add(config.SMTP.MaxFrequency).Before(time.Now()) {
 		return tooManyRequestsError("Rate limit exceeded, try again later")
 	}
 

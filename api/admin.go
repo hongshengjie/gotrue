@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/gofrs/uuid"
 	"github.com/sirupsen/logrus"
 
+	crudusers "github.com/netlify/gotrue/crud/users"
 	"github.com/netlify/gotrue/crypto"
 	"github.com/netlify/gotrue/models"
 	"github.com/netlify/gotrue/storage"
@@ -25,9 +26,10 @@ type adminUserParams struct {
 }
 
 func (a *API) loadUser(w http.ResponseWriter, r *http.Request) (context.Context, error) {
-	userID, err := uuid.FromString(chi.URLParam(r, "user_id"))
+	userIDStr := chi.URLParam(r, "user_id")
+	userID, err := strconv.ParseInt(userIDStr, 10, 64)
 	if err != nil {
-		return nil, badRequestError("user_id must be an UUID")
+		return nil, badRequestError("user_id must be a valid integer ID")
 	}
 
 	logEntrySetField(r, "user_id", userID)
@@ -238,7 +240,7 @@ func (a *API) adminUserCreate(w http.ResponseWriter, r *http.Request) error {
 			return terr
 		}
 
-		if terr := tx.Create(user); terr != nil {
+		if terr := user.Create(tx); terr != nil {
 			return terr
 		}
 
@@ -281,7 +283,8 @@ func (a *API) adminUserDelete(w http.ResponseWriter, r *http.Request) error {
 			return internalServerError("Error recording audit log entry").WithInternalError(terr)
 		}
 
-		if terr := tx.Destroy(user); terr != nil {
+		ctx := context.Background()
+		if _, terr := crudusers.Delete(tx.DB()).Where(crudusers.IdOp.EQ(user.ID)).Exec(ctx); terr != nil {
 			return internalServerError("Database error deleting user").WithInternalError(terr)
 		}
 		return nil

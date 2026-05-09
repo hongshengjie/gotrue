@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gofrs/uuid"
 	"github.com/netlify/gotrue/conf"
 	"github.com/netlify/gotrue/models"
 	"github.com/stretchr/testify/assert"
@@ -25,7 +24,7 @@ type TokenTestSuite struct {
 	API    *API
 	Config *conf.Configuration
 
-	instanceID uuid.UUID
+	instanceID int64
 }
 
 func TestToken(t *testing.T) {
@@ -52,7 +51,7 @@ func (ts *TokenTestSuite) SetupTest() {
 // and will fail to unmarshal an array.
 func TestAccessTokenAudIsString(t *testing.T) {
 	user := &models.User{Email: "test@example.com", Aud: "myapp"}
-	user.ID = uuid.Must(uuid.NewV4())
+	user.ID = 1234567890
 
 	tokenStr, err := generateAccessToken(user, time.Hour, "test-secret")
 	require.NoError(t, err)
@@ -79,7 +78,7 @@ func TestAccessTokenAudIsString(t *testing.T) {
 // kid header is required to identify Identity tokens downstream
 func TestAccessTokenHasKidHeader(t *testing.T) {
 	user := &models.User{Email: "test@example.com", Aud: "myapp"}
-	user.ID = uuid.Must(uuid.NewV4())
+	user.ID = 1234567890
 
 	tokenStr, err := generateAccessToken(user, time.Hour, "test-secret")
 	require.NoError(t, err)
@@ -102,20 +101,18 @@ func (ts *TokenTestSuite) TestRefreshTokenGrantExpired() {
 	// Create a confirmed user
 	u, err := models.NewUser(ts.instanceID, "test@example.com", "password", ts.Config.JWT.Aud, nil)
 	require.NoError(ts.T(), err)
-	now := time.Now()
-	u.ConfirmedAt = &now
-	require.NoError(ts.T(), ts.API.db.Create(u))
+	u.ConfirmedAt = time.Now()
+	require.NoError(ts.T(), u.Create(ts.API.db))
 
 	// Create a refresh token
 	r, err := models.GrantAuthenticatedUser(ts.API.db, u)
 	require.NoError(ts.T(), err)
 
 	// Backdate the token to make it older than the default 30-day lifetime
-	tableName := (&models.RefreshToken{}).TableName()
-	require.NoError(ts.T(), ts.API.db.RawQuery(
-		"UPDATE "+tableName+" SET created_at = ? WHERE id = ?",
+	require.NoError(ts.T(), ts.API.db.Exec(
+		"UPDATE refresh_tokens SET created_at = ? WHERE id = ?",
 		time.Now().Add(-31*24*time.Hour), r.ID,
-	).Exec())
+	))
 
 	// Attempt to use the expired refresh token
 	body := strings.NewReader(url.Values{"refresh_token": {r.Token}}.Encode())

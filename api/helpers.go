@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptrace"
 	"net/url"
+	"strconv"
 
 	"github.com/gofrs/uuid"
 	"github.com/netlify/gotrue/conf"
@@ -61,10 +62,10 @@ func getUserFromClaims(ctx context.Context, conn *storage.Connection) (*models.U
 	// System User
 	instanceID := getInstanceID(ctx)
 
-	if claims.Subject == models.SystemUserUUID.String() || claims.Subject == models.SystemUserID {
+	if claims.Subject == "0" {
 		return models.NewSystemUser(instanceID, claims.Audience), nil
 	}
-	userID, err := uuid.FromString(claims.Subject)
+	userID, err := strconv.ParseInt(claims.Subject, 10, 64)
 	if err != nil {
 		return nil, errors.New("Invalid user ID")
 	}

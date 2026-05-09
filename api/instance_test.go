@@ -3,11 +3,10 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-
-	"github.com/gofrs/uuid"
 
 	"github.com/netlify/gotrue/conf"
 	"github.com/netlify/gotrue/models"
@@ -16,7 +15,7 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-var testUUID = uuid.Must(uuid.FromString("11111111-1111-1111-1111-111111111111"))
+var testUUID = "11111111-1111-1111-1111-111111111111"
 
 const operatorToken = "operatorToken"
 
@@ -76,19 +75,18 @@ func (ts *InstanceTestSuite) TestCreate() {
 }
 
 func (ts *InstanceTestSuite) TestGet() {
-	instanceID := uuid.Must(uuid.NewV4())
-	err := ts.API.db.Create(&models.Instance{
-		ID:   instanceID,
+	i := &models.Instance{
 		UUID: testUUID,
 		BaseConfig: &conf.Configuration{
 			JWT: conf.JWTConfiguration{
 				Secret: "testsecret",
 			},
 		},
-	})
+	}
+	err := models.CreateInstance(ts.API.db, i)
 	require.NoError(ts.T(), err)
 
-	req := httptest.NewRequest(http.MethodGet, "/instances/"+instanceID.String(), nil)
+	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/instances/%d", i.ID), nil)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+operatorToken)
 
@@ -100,16 +98,15 @@ func (ts *InstanceTestSuite) TestGet() {
 }
 
 func (ts *InstanceTestSuite) TestUpdate() {
-	instanceID := uuid.Must(uuid.NewV4())
-	err := ts.API.db.Create(&models.Instance{
-		ID:   instanceID,
+	i := &models.Instance{
 		UUID: testUUID,
 		BaseConfig: &conf.Configuration{
 			JWT: conf.JWTConfiguration{
 				Secret: "testsecret",
 			},
 		},
-	})
+	}
+	err := models.CreateInstance(ts.API.db, i)
 	require.NoError(ts.T(), err)
 
 	var buffer bytes.Buffer
@@ -122,7 +119,7 @@ func (ts *InstanceTestSuite) TestUpdate() {
 		},
 	}))
 
-	req := httptest.NewRequest(http.MethodPut, "/instances/"+instanceID.String(), &buffer)
+	req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/instances/%d", i.ID), &buffer)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+operatorToken)
 
@@ -130,16 +127,14 @@ func (ts *InstanceTestSuite) TestUpdate() {
 	ts.API.handler.ServeHTTP(w, req)
 	require.Equal(ts.T(), w.Code, http.StatusOK)
 
-	i, err := models.GetInstanceByUUID(ts.API.db, testUUID)
+	i2, err := models.GetInstanceByUUID(ts.API.db, testUUID)
 	require.NoError(ts.T(), err)
-	require.Equal(ts.T(), i.BaseConfig.JWT.Secret, "testsecret")
-	require.Equal(ts.T(), i.BaseConfig.SiteURL, "https://test.mysite.com")
+	require.Equal(ts.T(), i2.BaseConfig.JWT.Secret, "testsecret")
+	require.Equal(ts.T(), i2.BaseConfig.SiteURL, "https://test.mysite.com")
 }
 
 func (ts *InstanceTestSuite) TestUpdate_DisableEmail() {
-	instanceID := uuid.Must(uuid.NewV4())
-	err := ts.API.db.Create(&models.Instance{
-		ID:   instanceID,
+	i := &models.Instance{
 		UUID: testUUID,
 		BaseConfig: &conf.Configuration{
 			External: conf.ProviderConfiguration{
@@ -148,7 +143,8 @@ func (ts *InstanceTestSuite) TestUpdate_DisableEmail() {
 				},
 			},
 		},
-	})
+	}
+	err := models.CreateInstance(ts.API.db, i)
 	require.NoError(ts.T(), err)
 
 	var buffer bytes.Buffer
@@ -162,7 +158,7 @@ func (ts *InstanceTestSuite) TestUpdate_DisableEmail() {
 		},
 	}))
 
-	req := httptest.NewRequest(http.MethodPut, "/instances/"+instanceID.String(), &buffer)
+	req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/instances/%d", i.ID), &buffer)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+operatorToken)
 
@@ -170,15 +166,13 @@ func (ts *InstanceTestSuite) TestUpdate_DisableEmail() {
 	ts.API.handler.ServeHTTP(w, req)
 	require.Equal(ts.T(), w.Code, http.StatusOK)
 
-	i, err := models.GetInstanceByUUID(ts.API.db, testUUID)
+	i2, err := models.GetInstanceByUUID(ts.API.db, testUUID)
 	require.NoError(ts.T(), err)
-	require.True(ts.T(), i.BaseConfig.External.Email.Disabled)
+	require.True(ts.T(), i2.BaseConfig.External.Email.Disabled)
 }
 
 func (ts *InstanceTestSuite) TestUpdate_PreserveSMTPConfig() {
-	instanceID := uuid.Must(uuid.NewV4())
-	err := ts.API.db.Create(&models.Instance{
-		ID:   instanceID,
+	i := &models.Instance{
 		UUID: testUUID,
 		BaseConfig: &conf.Configuration{
 			SMTP: conf.SMTPConfiguration{
@@ -187,7 +181,8 @@ func (ts *InstanceTestSuite) TestUpdate_PreserveSMTPConfig() {
 				Pass: "password123",
 			},
 		},
-	})
+	}
+	err := models.CreateInstance(ts.API.db, i)
 	require.NoError(ts.T(), err)
 
 	var buffer bytes.Buffer
@@ -200,7 +195,7 @@ func (ts *InstanceTestSuite) TestUpdate_PreserveSMTPConfig() {
 		},
 	}))
 
-	req := httptest.NewRequest(http.MethodPut, "/instances/"+instanceID.String(), &buffer)
+	req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/instances/%d", i.ID), &buffer)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+operatorToken)
 
@@ -208,15 +203,13 @@ func (ts *InstanceTestSuite) TestUpdate_PreserveSMTPConfig() {
 	ts.API.handler.ServeHTTP(w, req)
 	require.Equal(ts.T(), w.Code, http.StatusOK)
 
-	i, err := models.GetInstanceByUUID(ts.API.db, testUUID)
+	i2, err := models.GetInstanceByUUID(ts.API.db, testUUID)
 	require.NoError(ts.T(), err)
-	require.Equal(ts.T(), "password123", i.BaseConfig.SMTP.Pass)
+	require.Equal(ts.T(), "password123", i2.BaseConfig.SMTP.Pass)
 }
 
 func (ts *InstanceTestSuite) TestUpdate_ClearPassword() {
-	instanceID := uuid.Must(uuid.NewV4())
-	err := ts.API.db.Create(&models.Instance{
-		ID:   instanceID,
+	i := &models.Instance{
 		UUID: testUUID,
 		BaseConfig: &conf.Configuration{
 			SMTP: conf.SMTPConfiguration{
@@ -225,7 +218,8 @@ func (ts *InstanceTestSuite) TestUpdate_ClearPassword() {
 				Pass: "password123",
 			},
 		},
-	})
+	}
+	err := models.CreateInstance(ts.API.db, i)
 	require.NoError(ts.T(), err)
 
 	var buffer bytes.Buffer
@@ -238,7 +232,7 @@ func (ts *InstanceTestSuite) TestUpdate_ClearPassword() {
 	}))
 	ts.T().Log(buffer.String())
 
-	req := httptest.NewRequest(http.MethodPut, "/instances/"+instanceID.String(), &buffer)
+	req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/instances/%d", i.ID), &buffer)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+operatorToken)
 
@@ -246,7 +240,7 @@ func (ts *InstanceTestSuite) TestUpdate_ClearPassword() {
 	ts.API.handler.ServeHTTP(w, req)
 	require.Equal(ts.T(), w.Code, http.StatusOK)
 
-	i, err := models.GetInstanceByUUID(ts.API.db, testUUID)
+	i2, err := models.GetInstanceByUUID(ts.API.db, testUUID)
 	require.NoError(ts.T(), err)
-	require.Equal(ts.T(), "", i.BaseConfig.SMTP.Pass)
+	require.Equal(ts.T(), "", i2.BaseConfig.SMTP.Pass)
 }

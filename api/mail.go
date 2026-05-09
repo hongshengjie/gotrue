@@ -9,10 +9,12 @@ import (
 	"github.com/netlify/gotrue/models"
 	"github.com/netlify/gotrue/storage"
 	"github.com/pkg/errors"
+
+	crudusers "github.com/netlify/gotrue/crud/users"
 )
 
 func sendConfirmation(tx *storage.Connection, u *models.User, mailer mailer.Mailer, maxFrequency time.Duration, referrerURL string) error {
-	if u.ConfirmationSentAt != nil && !u.ConfirmationSentAt.Add(maxFrequency).Before(time.Now()) {
+	if u.ConfirmationSentAt.Year() > 2000 && !u.ConfirmationSentAt.Add(maxFrequency).Before(time.Now()) {
 		return nil
 	}
 
@@ -23,8 +25,15 @@ func sendConfirmation(tx *storage.Connection, u *models.User, mailer mailer.Mail
 		u.ConfirmationToken = oldToken
 		return errors.Wrap(err, "Error sending confirmation email")
 	}
-	u.ConfirmationSentAt = &now
-	return errors.Wrap(tx.UpdateOnly(u, "confirmation_token", "confirmation_sent_at"), "Database error updating user for confirmation")
+	u.ConfirmationSentAt = now
+
+	ctx := context.Background()
+	_, err := crudusers.Update(tx.DB()).
+		SetConfirmationToken(u.ConfirmationToken).
+		SetConfirmationSentAt(now).
+		Where(crudusers.IdOp.EQ(u.ID)).
+		Save(ctx)
+	return errors.Wrap(err, "Database error updating user for confirmation")
 }
 
 func sendInvite(tx *storage.Connection, u *models.User, mailer mailer.Mailer, referrerURL string) error {
@@ -35,8 +44,15 @@ func sendInvite(tx *storage.Connection, u *models.User, mailer mailer.Mailer, re
 		u.ConfirmationToken = oldToken
 		return errors.Wrap(err, "Error sending invite email")
 	}
-	u.InvitedAt = &now
-	return errors.Wrap(tx.UpdateOnly(u, "confirmation_token", "invited_at"), "Database error updating user for invite")
+	u.InvitedAt = now
+
+	ctx := context.Background()
+	_, err := crudusers.Update(tx.DB()).
+		SetConfirmationToken(u.ConfirmationToken).
+		SetInvitedAt(now).
+		Where(crudusers.IdOp.EQ(u.ID)).
+		Save(ctx)
+	return errors.Wrap(err, "Database error updating user for invite")
 }
 
 func (a *API) sendPasswordRecovery(tx *storage.Connection, u *models.User, mailer mailer.Mailer, referrerURL string) error {
@@ -47,8 +63,15 @@ func (a *API) sendPasswordRecovery(tx *storage.Connection, u *models.User, maile
 		u.RecoveryToken = oldToken
 		return errors.Wrap(err, "Error sending recovery email")
 	}
-	u.RecoverySentAt = &now
-	return errors.Wrap(tx.UpdateOnly(u, "recovery_token", "recovery_sent_at"), "Database error updating user for recovery")
+	u.RecoverySentAt = now
+
+	ctx := context.Background()
+	_, err := crudusers.Update(tx.DB()).
+		SetRecoveryToken(u.RecoveryToken).
+		SetRecoverySentAt(now).
+		Where(crudusers.IdOp.EQ(u.ID)).
+		Save(ctx)
+	return errors.Wrap(err, "Database error updating user for recovery")
 }
 
 func (a *API) sendEmailChange(tx *storage.Connection, u *models.User, mailer mailer.Mailer, email string, referrerURL string) error {
@@ -62,9 +85,16 @@ func (a *API) sendEmailChange(tx *storage.Connection, u *models.User, mailer mai
 		u.EmailChange = oldEmail
 		return err
 	}
+	u.EmailChangeSentAt = now
 
-	u.EmailChangeSentAt = &now
-	return errors.Wrap(tx.UpdateOnly(u, "email_change_token", "email_change", "email_change_sent_at"), "Database error updating user for email change")
+	ctx := context.Background()
+	_, err := crudusers.Update(tx.DB()).
+		SetEmailChangeToken(u.EmailChangeToken).
+		SetEmailChange(u.EmailChange).
+		SetEmailChangeSentAt(now).
+		Where(crudusers.IdOp.EQ(u.ID)).
+		Save(ctx)
+	return errors.Wrap(err, "Database error updating user for email change")
 }
 
 func (a *API) validateEmail(ctx context.Context, email string) error {

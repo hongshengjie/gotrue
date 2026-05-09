@@ -6,7 +6,6 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/gofrs/uuid"
 	"github.com/netlify/gotrue/conf"
 	"github.com/netlify/gotrue/models"
 	"github.com/stretchr/testify/require"
@@ -17,7 +16,7 @@ type ExternalTestSuite struct {
 	suite.Suite
 	API        *API
 	Config     *conf.Configuration
-	instanceID uuid.UUID
+	instanceID int64
 }
 
 func TestExternal(t *testing.T) {
@@ -44,7 +43,7 @@ func (ts *ExternalTestSuite) SetupTest() {
 func (ts *ExternalTestSuite) createUser(email string, name string, avatar string, confirmationToken string) (*models.User, error) {
 	// Cleanup existing user, if they already exist
 	if u, _ := models.FindUserByEmailAndAudience(ts.API.db, ts.instanceID, email, ts.Config.JWT.Aud); u != nil {
-		require.NoError(ts.T(), ts.API.db.Destroy(u), "Error deleting user")
+		require.NoError(ts.T(), u.Destroy(ts.API.db), "Error deleting user")
 	}
 
 	u, err := models.NewUser(ts.instanceID, email, "test", ts.Config.JWT.Aud, map[string]interface{}{"full_name": name, "avatar_url": avatar})
@@ -53,7 +52,7 @@ func (ts *ExternalTestSuite) createUser(email string, name string, avatar string
 		u.ConfirmationToken = confirmationToken
 	}
 	ts.Require().NoError(err, "Error making new user")
-	ts.Require().NoError(ts.API.db.Create(u), "Error creating user")
+	ts.Require().NoError(u.Create(ts.API.db), "Error creating user")
 
 	return u, err
 }

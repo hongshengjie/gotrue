@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 
-	"github.com/gofrs/uuid"
 	jwt "github.com/golang-jwt/jwt/v4"
 	"github.com/netlify/gotrue/conf"
 	"github.com/netlify/gotrue/models"
@@ -83,17 +82,17 @@ func getConfig(ctx context.Context) *conf.Configuration {
 }
 
 // withInstanceID adds the instance id to the context.
-func withInstanceID(ctx context.Context, id uuid.UUID) context.Context {
+func withInstanceID(ctx context.Context, id int64) context.Context {
 	return context.WithValue(ctx, instanceIDKey, id)
 }
 
 // getInstanceID reads the instance id from the context.
-func getInstanceID(ctx context.Context) uuid.UUID {
+func getInstanceID(ctx context.Context) int64 {
 	obj := ctx.Value(instanceIDKey)
 	if obj == nil {
-		return uuid.Nil
+		return 0
 	}
-	return obj.(uuid.UUID)
+	return obj.(int64)
 }
 
 // withInstance adds the instance id to the context.

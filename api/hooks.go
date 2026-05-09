@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -13,7 +14,6 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/gofrs/uuid"
 	jwt "github.com/golang-jwt/jwt/v4"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -46,7 +46,7 @@ type webhookClaims struct {
 type Webhook struct {
 	*conf.WebhookConfig
 
-	instanceID uuid.UUID
+	instanceID int64
 	jwtSecret  string
 	claims     jwt.Claims
 	payload    []byte
@@ -158,7 +158,7 @@ func closeBody(rsp *http.Response) {
 	}
 }
 
-func triggerEventHooks(ctx context.Context, conn *storage.Connection, event HookEvent, user *models.User, instanceID uuid.UUID, config *conf.Configuration) error {
+func triggerEventHooks(ctx context.Context, conn *storage.Connection, event HookEvent, user *models.User, instanceID int64, config *conf.Configuration) error {
 	if config.Webhook.URL != "" {
 		hookURL, err := url.Parse(config.Webhook.URL)
 		if err != nil {
@@ -189,7 +189,7 @@ func triggerEventHooks(ctx context.Context, conn *storage.Connection, event Hook
 }
 
 // TODO: use ctx for request cancellation in webhook calls
-func triggerHook(ctx context.Context, hookURL *url.URL, secret string, conn *storage.Connection, event HookEvent, user *models.User, instanceID uuid.UUID, config *conf.Configuration) error {
+func triggerHook(ctx context.Context, hookURL *url.URL, secret string, conn *storage.Connection, event HookEvent, user *models.User, instanceID int64, config *conf.Configuration) error {
 	if !hookURL.IsAbs() {
 		siteURL, err := url.Parse(config.SiteURL)
 		if err != nil {
@@ -202,7 +202,7 @@ func triggerHook(ctx context.Context, hookURL *url.URL, secret string, conn *sto
 
 	payload := struct {
 		Event      HookEvent    `json:"event"`
-		InstanceID uuid.UUID    `json:"instance_id,omitempty"`
+		InstanceID int64        `json:"instance_id,omitempty"`
 		User       *models.User `json:"user"`
 	}{
 		Event:      event,
@@ -222,7 +222,7 @@ func triggerHook(ctx context.Context, hookURL *url.URL, secret string, conn *sto
 	claims := webhookClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			IssuedAt: jwt.NewNumericDate(time.Now()),
-			Subject:  instanceID.String(),
+			Subject:  fmt.Sprintf("%d", instanceID),
 			Issuer:   gotrueIssuer,
 		},
 		SHA256: sha,

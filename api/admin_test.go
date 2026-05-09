@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gofrs/uuid"
 	jwt "github.com/golang-jwt/jwt/v4"
 	"github.com/netlify/gotrue/conf"
 	"github.com/netlify/gotrue/models"
@@ -25,7 +24,7 @@ type AdminTestSuite struct {
 	Config *conf.Configuration
 
 	token      string
-	instanceID uuid.UUID
+	instanceID int64
 }
 
 func TestAdmin(t *testing.T) {
@@ -53,7 +52,7 @@ func (ts *AdminTestSuite) makeSuperAdmin(email string) string {
 	require.NoError(ts.T(), err, "Error making new user")
 
 	u.IsSuperAdmin = true
-	require.NoError(ts.T(), ts.API.db.Create(u), "Error creating user")
+	require.NoError(ts.T(), u.Create(ts.API.db), "Error creating user")
 
 	token, err := generateAccessToken(u, time.Second*time.Duration(ts.Config.JWT.Exp), ts.Config.JWT.Secret)
 	require.NoError(ts.T(), err, "Error generating access token")
@@ -68,7 +67,7 @@ func (ts *AdminTestSuite) makeSuperAdmin(email string) string {
 }
 
 func (ts *AdminTestSuite) makeSystemUser() string {
-	u := models.NewSystemUser(uuid.Nil, ts.Config.JWT.Aud)
+	u := models.NewSystemUser(0, ts.Config.JWT.Aud)
 
 	token, err := generateAccessToken(u, time.Second*time.Duration(ts.Config.JWT.Exp), ts.Config.JWT.Secret)
 	require.NoError(ts.T(), err, "Error generating access token")
@@ -121,11 +120,11 @@ func (ts *AdminTestSuite) TestAdminUsers() {
 func (ts *AdminTestSuite) TestAdminUsers_Pagination() {
 	u, err := models.NewUser(ts.instanceID, "test1@example.com", "test", ts.Config.JWT.Aud, nil)
 	require.NoError(ts.T(), err, "Error making new user")
-	require.NoError(ts.T(), ts.API.db.Create(u), "Error creating user")
+	require.NoError(ts.T(), u.Create(ts.API.db), "Error creating user")
 
 	u, err = models.NewUser(ts.instanceID, "test2@example.com", "test", ts.Config.JWT.Aud, nil)
 	require.NoError(ts.T(), err, "Error making new user")
-	require.NoError(ts.T(), ts.API.db.Create(u), "Error creating user")
+	require.NoError(ts.T(), u.Create(ts.API.db), "Error creating user")
 
 	// Setup request
 	w := httptest.NewRecorder()
@@ -153,7 +152,7 @@ func (ts *AdminTestSuite) TestAdminUsers_SortAsc() {
 
 	// if the created_at times are the same, then the sort order is not guaranteed
 	time.Sleep(1 * time.Second)
-	require.NoError(ts.T(), ts.API.db.Create(u), "Error creating user")
+	require.NoError(ts.T(), u.Create(ts.API.db), "Error creating user")
 
 	// Setup request
 	w := httptest.NewRecorder()
@@ -184,7 +183,7 @@ func (ts *AdminTestSuite) TestAdminUsers_SortDesc() {
 	require.NoError(ts.T(), err, "Error making new user")
 	// if the created_at times are the same, then the sort order is not guaranteed
 	time.Sleep(1 * time.Second)
-	require.NoError(ts.T(), ts.API.db.Create(u), "Error creating user")
+	require.NoError(ts.T(), u.Create(ts.API.db), "Error creating user")
 
 	// Setup request
 	w := httptest.NewRecorder()
@@ -210,7 +209,7 @@ func (ts *AdminTestSuite) TestAdminUsers_SortDesc() {
 func (ts *AdminTestSuite) TestAdminUsers_FilterEmail() {
 	u, err := models.NewUser(ts.instanceID, "test1@example.com", "test", ts.Config.JWT.Aud, nil)
 	require.NoError(ts.T(), err, "Error making new user")
-	require.NoError(ts.T(), ts.API.db.Create(u), "Error creating user")
+	require.NoError(ts.T(), u.Create(ts.API.db), "Error creating user")
 
 	// Setup request
 	w := httptest.NewRecorder()
@@ -235,7 +234,7 @@ func (ts *AdminTestSuite) TestAdminUsers_FilterEmail() {
 func (ts *AdminTestSuite) TestAdminUsers_FilterName() {
 	u, err := models.NewUser(ts.instanceID, "test1@example.com", "test", ts.Config.JWT.Aud, nil)
 	require.NoError(ts.T(), err, "Error making new user")
-	require.NoError(ts.T(), ts.API.db.Create(u), "Error creating user")
+	require.NoError(ts.T(), u.Create(ts.API.db), "Error creating user")
 
 	// Setup request
 	w := httptest.NewRecorder()
@@ -283,11 +282,11 @@ func (ts *AdminTestSuite) TestAdminUserCreate() {
 func (ts *AdminTestSuite) TestAdminUserGet() {
 	u, err := models.NewUser(ts.instanceID, "test1@example.com", "test", ts.Config.JWT.Aud, map[string]interface{}{"full_name": "Test Get User"})
 	require.NoError(ts.T(), err, "Error making new user")
-	require.NoError(ts.T(), ts.API.db.Create(u), "Error creating user")
+	require.NoError(ts.T(), u.Create(ts.API.db), "Error creating user")
 
 	// Setup request
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/admin/users/%s", u.ID), nil)
+	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/admin/users/%d", u.ID), nil)
 
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", ts.token))
 
@@ -309,7 +308,7 @@ func (ts *AdminTestSuite) TestAdminUserGet() {
 func (ts *AdminTestSuite) TestAdminUserUpdate() {
 	u, err := models.NewUser(ts.instanceID, "test1@example.com", "test", ts.Config.JWT.Aud, nil)
 	require.NoError(ts.T(), err, "Error making new user")
-	require.NoError(ts.T(), ts.API.db.Create(u), "Error creating user")
+	require.NoError(ts.T(), u.Create(ts.API.db), "Error creating user")
 
 	var buffer bytes.Buffer
 	require.NoError(ts.T(), json.NewEncoder(&buffer).Encode(map[string]interface{}{
@@ -324,7 +323,7 @@ func (ts *AdminTestSuite) TestAdminUserUpdate() {
 
 	// Setup request
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/admin/users/%s", u.ID), &buffer)
+	req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/admin/users/%d", u.ID), &buffer)
 
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", ts.token))
 
@@ -348,7 +347,7 @@ func (ts *AdminTestSuite) TestAdminUserUpdate() {
 func (ts *AdminTestSuite) TestAdminUserUpdateAsSystemUser() {
 	u, err := models.NewUser(ts.instanceID, "test1@example.com", "test", ts.Config.JWT.Aud, nil)
 	require.NoError(ts.T(), err, "Error making new user")
-	require.NoError(ts.T(), ts.API.db.Create(u), "Error creating user")
+	require.NoError(ts.T(), u.Create(ts.API.db), "Error creating user")
 
 	var buffer bytes.Buffer
 	require.NoError(ts.T(), json.NewEncoder(&buffer).Encode(map[string]interface{}{
@@ -363,7 +362,7 @@ func (ts *AdminTestSuite) TestAdminUserUpdateAsSystemUser() {
 
 	// Setup request
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/admin/users/%s", u.ID), &buffer)
+	req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/admin/users/%d", u.ID), &buffer)
 
 	token := ts.makeSystemUser()
 
@@ -394,11 +393,11 @@ func (ts *AdminTestSuite) TestAdminUserUpdateAsSystemUser() {
 func (ts *AdminTestSuite) TestAdminUserDelete() {
 	u, err := models.NewUser(ts.instanceID, "test-delete@example.com", "test", ts.Config.JWT.Aud, nil)
 	require.NoError(ts.T(), err, "Error making new user")
-	require.NoError(ts.T(), ts.API.db.Create(u), "Error creating user")
+	require.NoError(ts.T(), u.Create(ts.API.db), "Error creating user")
 
 	// Setup request
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/admin/users/%s", u.ID), nil)
+	req := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/admin/users/%d", u.ID), nil)
 
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", ts.token))
 

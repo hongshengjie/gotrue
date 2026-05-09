@@ -9,7 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gofrs/uuid"
+	"fmt"
+
 	"github.com/netlify/gotrue/conf"
 	"github.com/netlify/gotrue/models"
 	"github.com/netlify/gotrue/storage/test"
@@ -24,7 +25,7 @@ func TestSignupHookSendInstanceID(t *testing.T) {
 	conn, err := test.SetupDBConnection(globalConfig)
 	require.NoError(t, err)
 
-	iid := uuid.Must(uuid.NewV4())
+	iid := int64(12345)
 	user, err := models.NewUser(iid, "test@truth.com", "thisisapassword", "", nil)
 	require.NoError(t, err)
 
@@ -39,7 +40,7 @@ func TestSignupHookSendInstanceID(t *testing.T) {
 		require.NoError(t, json.Unmarshal(raw, &data))
 
 		assert.Len(t, data, 3)
-		assert.Equal(t, iid.String(), data["instance_id"])
+		assert.Equal(t, fmt.Sprintf("%d", iid), data["instance_id"])
 		assert.Equal(t, "identity_signup", r.Header.Get("X-Netlify-Event"))
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -68,7 +69,7 @@ func TestSignupHookFromClaims(t *testing.T) {
 	conn, err := test.SetupDBConnection(globalConfig)
 	require.NoError(t, err)
 
-	iid := uuid.Must(uuid.NewV4())
+	iid := int64(12345)
 	user, err := models.NewUser(iid, "test@truth.com", "thisisapassword", "", nil)
 	require.NoError(t, err)
 
@@ -83,7 +84,7 @@ func TestSignupHookFromClaims(t *testing.T) {
 		require.NoError(t, json.Unmarshal(raw, &data))
 
 		assert.Len(t, data, 3)
-		assert.Equal(t, iid.String(), data["instance_id"])
+		assert.Equal(t, fmt.Sprintf("%d", iid), data["instance_id"])
 		assert.Equal(t, "identity_signup", r.Header.Get("X-Netlify-Event"))
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -195,7 +196,7 @@ func TestTriggerHookDoesNotMutateConfig(t *testing.T) {
 	conn, err := test.SetupDBConnection(globalConfig)
 	require.NoError(t, err)
 
-	iid := uuid.Must(uuid.NewV4())
+	iid := int64(12345)
 	user, err := models.NewUser(iid, "test@truth.com", "thisisapassword", "", nil)
 	require.NoError(t, err)
 
@@ -254,7 +255,7 @@ func TestUserDeletedHookSendInstanceID(t *testing.T) {
 	conn, err := test.SetupDBConnection(globalConfig)
 	require.NoError(t, err)
 
-	iid := uuid.Must(uuid.NewV4())
+	iid := int64(12345)
 	user, err := models.NewUser(iid, "test@truth.com", "thisisapassword", "", nil)
 	require.NoError(t, err)
 
@@ -269,7 +270,7 @@ func TestUserDeletedHookSendInstanceID(t *testing.T) {
 		require.NoError(t, json.Unmarshal(raw, &data))
 
 		assert.Len(t, data, 3)
-		assert.Equal(t, iid.String(), data["instance_id"])
+		assert.Equal(t, fmt.Sprintf("%d", iid), data["instance_id"])
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer svr.Close()
@@ -297,7 +298,7 @@ func TestUserModifiedHookSendInstanceID(t *testing.T) {
 	conn, err := test.SetupDBConnection(globalConfig)
 	require.NoError(t, err)
 
-	iid := uuid.Must(uuid.NewV4())
+	iid := int64(12345)
 	user, err := models.NewUser(iid, "test@truth.com", "thisisapassword", "", nil)
 	require.NoError(t, err)
 
@@ -312,7 +313,7 @@ func TestUserModifiedHookSendInstanceID(t *testing.T) {
 		require.NoError(t, json.Unmarshal(raw, &data))
 
 		assert.Len(t, data, 3)
-		assert.Equal(t, iid.String(), data["instance_id"])
+		assert.Equal(t, fmt.Sprintf("%d", iid), data["instance_id"])
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer svr.Close()
@@ -340,7 +341,7 @@ func TestUserDeletedHookFromClaims(t *testing.T) {
 	conn, err := test.SetupDBConnection(globalConfig)
 	require.NoError(t, err)
 
-	iid := uuid.Must(uuid.NewV4())
+	iid := int64(12345)
 	user, err := models.NewUser(iid, "test@truth.com", "thisisapassword", "", nil)
 	require.NoError(t, err)
 
@@ -355,7 +356,7 @@ func TestUserDeletedHookFromClaims(t *testing.T) {
 		require.NoError(t, json.Unmarshal(raw, &data))
 
 		assert.Len(t, data, 3)
-		assert.Equal(t, iid.String(), data["instance_id"])
+		assert.Equal(t, fmt.Sprintf("%d", iid), data["instance_id"])
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer svr.Close()
@@ -387,7 +388,7 @@ func TestUserModifiedHookFromClaims(t *testing.T) {
 	conn, err := test.SetupDBConnection(globalConfig)
 	require.NoError(t, err)
 
-	iid := uuid.Must(uuid.NewV4())
+	iid := int64(12345)
 	user, err := models.NewUser(iid, "test@truth.com", "thisisapassword", "", nil)
 	require.NoError(t, err)
 
@@ -402,7 +403,7 @@ func TestUserModifiedHookFromClaims(t *testing.T) {
 		require.NoError(t, json.Unmarshal(raw, &data))
 
 		assert.Len(t, data, 3)
-		assert.Equal(t, iid.String(), data["instance_id"])
+		assert.Equal(t, fmt.Sprintf("%d", iid), data["instance_id"])
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer svr.Close()

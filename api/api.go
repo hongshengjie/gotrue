@@ -12,7 +12,6 @@ import (
 	"github.com/didip/tollbooth/v5"
 	"github.com/didip/tollbooth/v5/limiter"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/gofrs/uuid"
 	"github.com/imdario/mergo"
 	"github.com/netlify/gotrue/conf"
 	"github.com/netlify/gotrue/mailer"
@@ -221,7 +220,7 @@ func NewAPIFromConfigFile(filename string, version string) (*API, *conf.Configur
 		return nil, nil, err
 	}
 
-	ctx, err := WithInstanceConfig(context.Background(), config, uuid.Nil)
+	ctx, err := WithInstanceConfig(context.Background(), config, 0)
 	if err != nil {
 		logrus.Fatalf("Error loading instance config: %+v", err)
 	}
@@ -242,7 +241,7 @@ func (a *API) HealthCheck(w http.ResponseWriter, r *http.Request) error {
 	})
 }
 
-func WithInstanceConfig(ctx context.Context, config *conf.Configuration, instanceID uuid.UUID) (context.Context, error) {
+func WithInstanceConfig(ctx context.Context, config *conf.Configuration, instanceID int64) (context.Context, error) {
 	ctx = withConfig(ctx, config)
 	ctx = withInstanceID(ctx, instanceID)
 	return ctx, nil

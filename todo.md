@@ -2,92 +2,114 @@
 
 ## 数据表结构
 
+> 设计原则：所有字段 NOT NULL；`instance_id` 统一用 `int NOT NULL` 存储雪花 Node ID；`users.id` 由应用层雪花算法生成；其余三张表 `id` 使用数据库 AUTO_INCREMENT。
+
 ### 表 1：users（用户表）
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | bigint(20) NOT NULL AUTO_INCREMENT PK | 自增主键 |
-| uid | varchar(255) NOT NULL DEFAULT '' | UUID，UNIQUE KEY |
-| instance_id | varchar(255) NOT NULL DEFAULT '' | 租户 ID，索引 |
-| aud | varchar(255) NOT NULL DEFAULT '' | audience |
-| role | varchar(255) NOT NULL DEFAULT '' | 角色 |
-| email | varchar(255) NOT NULL DEFAULT '' | 邮箱，联合索引 (instance_id, email) |
-| encrypted_password | varchar(255) NOT NULL DEFAULT '' | 加密密码（bcrypt）|
-| confirmed_at | timestamp NOT NULL DEFAULT '0001-01-01 00:00:00' | 邮箱确认时间，零值表示未确认 |
-| invited_at | timestamp NOT NULL DEFAULT '0001-01-01 00:00:00' | 邀请时间，零值表示未邀请 |
-| confirmation_token | varchar(255) NOT NULL DEFAULT '' | 确认令牌 |
-| confirmation_sent_at | timestamp NOT NULL DEFAULT '0001-01-01 00:00:00' | 确认邮件发送时间 |
-| recovery_token | varchar(255) NOT NULL DEFAULT '' | 恢复令牌 |
-| recovery_sent_at | timestamp NOT NULL DEFAULT '0001-01-01 00:00:00' | 恢复邮件发送时间 |
-| email_change_token | varchar(255) NOT NULL DEFAULT '' | 改邮箱令牌 |
-| email_change | varchar(255) NOT NULL DEFAULT '' | 新邮箱地址 |
-| email_change_sent_at | timestamp NOT NULL DEFAULT '0001-01-01 00:00:00' | 改邮箱邮件发送时间 |
-| last_sign_in_at | timestamp NOT NULL DEFAULT '0001-01-01 00:00:00' | 最后登录时间，零值表示从未登录 |
-| raw_app_meta_data | varchar(4096) NOT NULL DEFAULT '{}' | 应用元数据（JSON 字符串）|
-| raw_user_meta_data | varchar(4096) NOT NULL DEFAULT '{}' | 用户元数据（JSON 字符串）|
-| is_super_admin | tinyint(1) NOT NULL DEFAULT 0 | 超级管理员标志 |
-| created_at | timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP | 创建时间 |
-| updated_at | timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP | 更新时间 |
+```sql
+CREATE TABLE `users` (
+  `id`                   bigint(20)    NOT NULL,
+  `instance_id`          int           NOT NULL DEFAULT 0,
+  `aud`                  varchar(255)  NOT NULL DEFAULT '',
+  `role`                 varchar(255)  NOT NULL DEFAULT '',
+  `email`                varchar(255)  NOT NULL DEFAULT '',
+  `encrypted_password`   varchar(255)  NOT NULL DEFAULT '',
+  `confirmed_at`         timestamp     NOT NULL DEFAULT '2000-01-01 00:00:00',
+  `invited_at`           timestamp     NOT NULL DEFAULT '2000-01-01 00:00:00',
+  `confirmation_token`   varchar(255)  NOT NULL DEFAULT '',
+  `confirmation_sent_at` timestamp     NOT NULL DEFAULT '2000-01-01 00:00:00',
+  `recovery_token`       varchar(255)  NOT NULL DEFAULT '',
+  `recovery_sent_at`     timestamp     NOT NULL DEFAULT '2000-01-01 00:00:00',
+  `email_change_token`   varchar(255)  NOT NULL DEFAULT '',
+  `email_change`         varchar(255)  NOT NULL DEFAULT '',
+  `email_change_sent_at` timestamp     NOT NULL DEFAULT '2000-01-01 00:00:00',
+  `last_sign_in_at`      timestamp     NOT NULL DEFAULT '2000-01-01 00:00:00',
+  `raw_app_meta_data`    varchar(4096) NOT NULL DEFAULT '{}',
+  `raw_user_meta_data`   varchar(4096) NOT NULL DEFAULT '{}',
+  `is_super_admin`       tinyint(1)    NOT NULL DEFAULT 0,
+  `created_at`           timestamp     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at`           timestamp     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `users_instance_id_idx` (`instance_id`),
+  KEY `users_instance_id_email_idx` (`instance_id`, `email`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+```
 
-索引：`users_uid_uidx(uid)` UNIQUE、`users_instance_id_idx(instance_id)`、`users_instance_id_email_idx(instance_id, email)`
+- `id`：bigint，应用层用雪花算法生成，写入前赋值，**不** AUTO_INCREMENT
+- `instance_id`：int，存储雪花 Node ID，标识租户；零值 0 表示默认节点
+- 时间戳零值用 `2000-01-01 00:00:00`（MySQL 5.7 timestamp 最小有效值为 1970-01-01，`0001-01-01` 越界）
 
 ---
 
 ### 表 2：instances（实例/租户表）
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | bigint(20) NOT NULL AUTO_INCREMENT PK | 自增主键 |
-| uid | varchar(255) NOT NULL DEFAULT '' | UUID，UNIQUE KEY |
-| uuid | varchar(255) NOT NULL DEFAULT '' | 对外 UUID，UNIQUE KEY |
-| raw_base_config | text NOT NULL DEFAULT '' | JSON 格式的租户配置 |
-| created_at | timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP | 创建时间 |
-| updated_at | timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP | 更新时间 |
+```sql
+CREATE TABLE `instances` (
+  `id`              bigint(20)   NOT NULL AUTO_INCREMENT,
+  `uuid`            varchar(255) NOT NULL DEFAULT '',
+  `raw_base_config` text         NOT NULL DEFAULT '',
+  `created_at`      timestamp    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at`      timestamp    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `instances_uuid_uidx` (`uuid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+```
 
 ---
 
 ### 表 3：refresh_tokens（刷新令牌表）
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | bigint(20) NOT NULL AUTO_INCREMENT PK | 自增主键 |
-| instance_id | varchar(255) NOT NULL DEFAULT '' | 租户 ID，索引 |
-| token | varchar(255) NOT NULL DEFAULT '' | 令牌字符串，索引 |
-| user_id | varchar(255) NOT NULL DEFAULT '' | 用户 UUID，联合索引 (instance_id, user_id) |
-| revoked | tinyint(1) NOT NULL DEFAULT 0 | 是否已撤销，0=有效 1=已撤销 |
-| created_at | timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP | 创建时间 |
-| updated_at | timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP | 更新时间 |
+```sql
+CREATE TABLE `refresh_tokens` (
+  `id`          bigint(20)   NOT NULL AUTO_INCREMENT,
+  `instance_id` int          NOT NULL DEFAULT 0,
+  `token`       varchar(255) NOT NULL DEFAULT '',
+  `user_id`     bigint(20)   NOT NULL DEFAULT 0,
+  `revoked`     tinyint(1)   NOT NULL DEFAULT 0,
+  `created_at`  timestamp    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at`  timestamp    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `refresh_tokens_instance_id_idx` (`instance_id`),
+  KEY `refresh_tokens_instance_id_user_id_idx` (`instance_id`, `user_id`),
+  KEY `refresh_tokens_token_idx` (`token`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+```
 
-索引：`refresh_tokens_instance_id_idx(instance_id)`、`refresh_tokens_instance_id_user_id_idx(instance_id, user_id)`、`refresh_tokens_token_idx(token)`
+- `user_id`：bigint，对应 `users.id`（雪花 ID）
 
 ---
 
 ### 表 4：audit_log_entries（审计日志表）
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | bigint(20) NOT NULL AUTO_INCREMENT PK | 自增主键 |
-| uid | varchar(255) NOT NULL DEFAULT '' | UUID，UNIQUE KEY |
-| instance_id | varchar(255) NOT NULL DEFAULT '' | 租户 ID，索引 |
-| payload | varchar(4096) NOT NULL DEFAULT '{}' | 审计数据 JSON（actor_id/email、action、log_type 等）|
-| created_at | timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP | 创建时间 |
-
-索引：`audit_log_entries_uid_uidx(uid)` UNIQUE、`audit_logs_instance_id_idx(instance_id)`
+```sql
+CREATE TABLE `audit_log_entries` (
+  `id`          bigint(20)   NOT NULL AUTO_INCREMENT,
+  `instance_id` int          NOT NULL DEFAULT 0,
+  `payload`     varchar(4096) NOT NULL DEFAULT '{}',
+  `created_at`  timestamp    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `audit_logs_instance_id_idx` (`instance_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+```
 
 ---
 
 ## 迁移挑战
 
-| 挑战 | 当前方案 | 迁移方案 |
-|------|---------|---------|
-| UUID 主键 | pop 原生支持 uuid.UUID | 用 string 类型，手动处理 UUID 生成 |
-| 命名空间（多租户）| TableName() 动态返回 `{ns}_users` | goflower-io/crud 生成固定表名；需在连接层处理 ns |
-| 生命周期钩子 | pop BeforeCreate/BeforeUpdate | 在 Save/Create 前手动调用验证逻辑 |
-| JSON 字段 | pop 的 JSONMap 类型 | 保留 json_map.go，实现 database/sql Scanner/Valuer 接口 |
-| NULL 时间戳 | `*time.Time` | 保留 `*time.Time`，通过自定义 Scanner |
-| 迁移系统 | pop FileMigrator | 改用 golang-migrate/migrate 或直接执行 SQL |
-| UpdateOnly | `tx.UpdateOnly(model, fields...)` | crud 的 `Update().SetXxx().Where()` 模式 |
+| 挑战 | 原始方案 | 新方案 |
+|------|---------|--------|
+| users.id 类型变更 | varchar(255) UUID 主键 | bigint 雪花 ID，应用层生成；引入 `github.com/bwmarrin/snowflake` |
+| instance_id 类型变更 | varchar(255) UUID | int，存雪花 Node ID（0～1023）；全表统一 |
+| refresh_tokens.user_id 类型变更 | varchar(255) UUID | bigint，与 users.id 对齐 |
+| audit_log_entries.id 类型变更 | varchar(255) UUID | bigint AUTO_INCREMENT |
+| instances.id 类型变更 | varchar(255) UUID | bigint AUTO_INCREMENT |
+| timestamp NOT NULL | 原始全为 NULL | 统一 NOT NULL，零值用 `2000-01-01 00:00:00`；Go 侧用 `time.Time`（非指针）|
+| JSON 字段 | json 类型（可 NULL）| varchar(4096) NOT NULL DEFAULT '{}'；保留 json_map.go Scanner/Valuer |
+| 命名空间（多租户）| TableName() 动态 `{ns}_users` | goflower-io/crud 固定表名；在连接层处理 ns |
+| 生命周期钩子 | pop BeforeCreate/BeforeUpdate | Create 前手动调用 validate()，再赋雪花 ID |
+| UpdateOnly | `tx.UpdateOnly(model, fields...)` | crud `Update().SetXxx().Where()` 模式 |
 | 原始 SQL | `tx.RawQuery().Exec()` | 通过底层 `*sql.DB` 直接执行 |
+| 迁移系统 | pop FileMigrator | golang-migrate/migrate 或直接执行 SQL |
 | 分页总数 | `q.Paginator.TotalEntriesSize` | 额外执行 COUNT 查询 |
 
 ---
@@ -106,8 +128,11 @@
 - [ ] `crud/sql/audit_log_entries.sql` — audit_log_entries 表 DDL
 
 ### Phase 2：生成模型代码
-- [ ] 运行 `crud` 命令，生成 `crud/` 目录下 Go 模型代码
-- [ ] 检查生成的 `crud/aa_client.go`（客户端）和各模型文件
+- [ ] 运行以下命令重新生成 `crud/` 目录下 Go 模型代码：
+  ```
+  crud -path crud/sql
+  ```
+- [ ] 检查生成的各模型文件
 
 ### Phase 3：重写 storage 层（storage/dial.go）
 - [ ] 用 `crud.NewClient()` 替换 `pop.NewConnection()`
@@ -138,7 +163,8 @@
 - [ ] `(u *User) ConfirmEmailChange()` — 更新 email + email_change + email_change_token
 - [ ] `(u *User) Recover()` — 更新 recovery_token
 - [ ] 替换 `BeforeCreate/BeforeUpdate` 钩子为手动调用的 `validate()` 方法
-- [ ] `(u *User) Create()` — 调用 validate + `client.User.Create().SetUser(u).Save(ctx)`
+- [ ] 引入雪花 ID 生成器（`github.com/bwmarrin/snowflake`），初始化全局 `snowflake.Node`
+- [ ] `(u *User) Create()` — 在 validate 后、写库前调用 `node.Generate().Int64()` 为 `u.ID` 赋值，再调用 `client.User.Create().SetUser(u).Save(ctx)`
 
 #### models/instance.go
 - [ ] `GetInstance()` — `client.Instance.Find().Where(IdOp.EQ(id)).One(ctx)`

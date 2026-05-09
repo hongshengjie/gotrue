@@ -4,16 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/gofrs/uuid"
 	"github.com/netlify/gotrue/conf"
 	"github.com/netlify/gotrue/models"
-	"github.com/pkg/errors"
 )
 
 func (a *API) loadInstance(w http.ResponseWriter, r *http.Request) (context.Context, error) {
-	instanceID, err := uuid.FromString(chi.URLParam(r, "instance_id"))
+	instanceIDStr := chi.URLParam(r, "instance_id")
+	instanceID, err := strconv.ParseInt(instanceIDStr, 10, 64)
 	if err != nil {
 		return nil, badRequestError("Invalid instance ID")
 	}
@@ -40,7 +40,7 @@ func (a *API) GetAppManifest(w http.ResponseWriter, r *http.Request) error {
 }
 
 type InstanceRequestParams struct {
-	UUID       uuid.UUID           `json:"uuid"`
+	UUID       string              `json:"uuid"`
 	BaseConfig *conf.Configuration `json:"config"`
 }
 
@@ -65,17 +65,11 @@ func (a *API) CreateInstance(w http.ResponseWriter, r *http.Request) error {
 		return badRequestError("An instance with that UUID already exists")
 	}
 
-	id, err := uuid.NewV4()
-	if err != nil {
-		return errors.Wrap(err, "Error generating id")
-	}
-
 	i := models.Instance{
-		ID:         id,
 		UUID:       params.UUID,
 		BaseConfig: params.BaseConfig,
 	}
-	if err = a.db.Create(&i); err != nil {
+	if err = models.CreateInstance(a.db, &i); err != nil {
 		return internalServerError("Database error creating instance").WithInternalError(err)
 	}
 

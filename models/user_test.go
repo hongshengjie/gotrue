@@ -1,9 +1,10 @@
 package models
 
 import (
+	"context"
 	"testing"
 
-	"github.com/gofrs/uuid"
+	crudusers "github.com/netlify/gotrue/crud/users"
 	"github.com/netlify/gotrue/conf"
 	"github.com/netlify/gotrue/storage"
 	"github.com/netlify/gotrue/storage/test"
@@ -33,13 +34,12 @@ func TestUser(t *testing.T) {
 	ts := &UserTestSuite{
 		db: conn,
 	}
-	defer ts.db.Close()
 
 	suite.Run(t, ts)
 }
 
 func (ts *UserTestSuite) TestUpdateAppMetadata() {
-	u, err := NewUser(uuid.Nil, "", "", "", nil)
+	u, err := NewUser(0, "", "", "", nil)
 	require.NoError(ts.T(), err)
 	require.NoError(ts.T(), u.UpdateAppMetaData(ts.db, make(map[string]interface{})))
 
@@ -58,7 +58,7 @@ func (ts *UserTestSuite) TestUpdateAppMetadata() {
 }
 
 func (ts *UserTestSuite) TestUpdateUserMetadata() {
-	u, err := NewUser(uuid.Nil, "", "", "", nil)
+	u, err := NewUser(0, "", "", "", nil)
 	require.NoError(ts.T(), err)
 	require.NoError(ts.T(), u.UpdateUserMetaData(ts.db, make(map[string]interface{})))
 
@@ -80,7 +80,12 @@ func (ts *UserTestSuite) TestFindUserByConfirmationToken() {
 	u := ts.createUser()
 
 	u.ConfirmationToken = "test-confirmation-token"
-	require.NoError(ts.T(), ts.db.Update(u))
+	ctx := context.Background()
+	_, err := crudusers.Update(ts.db.DB()).
+		SetConfirmationToken(u.ConfirmationToken).
+		Where(crudusers.IdOp.EQ(u.ID)).
+		Save(ctx)
+	require.NoError(ts.T(), err)
 
 	n, err := FindUserByConfirmationToken(ts.db, u.ConfirmationToken)
 	require.NoError(ts.T(), err)
@@ -147,7 +152,11 @@ func (ts *UserTestSuite) TestFindUserByRecoveryToken() {
 	u := ts.createUser()
 	u.RecoveryToken = "asdf"
 
-	err := ts.db.Update(u)
+	ctx := context.Background()
+	_, err := crudusers.Update(ts.db.DB()).
+		SetRecoveryToken(u.RecoveryToken).
+		Where(crudusers.IdOp.EQ(u.ID)).
+		Save(ctx)
 	require.NoError(ts.T(), err)
 
 	n, err := FindUserByRecoveryToken(ts.db, u.RecoveryToken)
@@ -192,10 +201,10 @@ func (ts *UserTestSuite) createUser() *User {
 }
 
 func (ts *UserTestSuite) createUserWithEmail(email string) *User {
-	user, err := NewUser(uuid.Nil, email, "secret", "test", nil)
+	user, err := NewUser(0, email, "secret", "test", nil)
 	require.NoError(ts.T(), err)
 
-	err = ts.db.Create(user)
+	err = user.Create(ts.db)
 	require.NoError(ts.T(), err)
 
 	return user

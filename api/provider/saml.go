@@ -20,7 +20,6 @@ import (
 	"github.com/netlify/gotrue/models"
 	"github.com/netlify/gotrue/storage"
 
-	"github.com/gofrs/uuid"
 	"github.com/netlify/gotrue/conf"
 	saml2 "github.com/russellhaering/gosaml2"
 	"github.com/russellhaering/gosaml2/types"
@@ -33,7 +32,7 @@ type SamlProvider struct {
 }
 
 type ConfigX509KeyStore struct {
-	InstanceID uuid.UUID
+	InstanceID int64
 	DB         *storage.Connection
 	Conf       conf.SamlProviderConfiguration
 }
@@ -65,7 +64,7 @@ func getMetadata(url string) (*types.EntityDescriptor, error) {
 }
 
 // NewSamlProvider creates a Saml account provider.
-func NewSamlProvider(ext conf.SamlProviderConfiguration, db *storage.Connection, instanceId uuid.UUID) (*SamlProvider, error) {
+func NewSamlProvider(ext conf.SamlProviderConfiguration, db *storage.Connection, instanceId int64) (*SamlProvider, error) {
 	if !ext.Enabled {
 		return nil, errors.New("SAML Provider is not enabled")
 	}
@@ -222,7 +221,7 @@ func (ks ConfigX509KeyStore) CreateSigningCert() (*rsa.PrivateKey, []byte, error
 }
 
 func (ks ConfigX509KeyStore) SaveConfig(cert []byte, key *rsa.PrivateKey) error {
-	if ks.InstanceID == uuid.Nil {
+	if ks.InstanceID == 0 {
 		return nil
 	}
 

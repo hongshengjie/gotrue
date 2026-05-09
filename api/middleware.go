@@ -9,7 +9,6 @@ import (
 
 	"github.com/didip/tollbooth/v5"
 	"github.com/didip/tollbooth/v5/limiter"
-	"github.com/gofrs/uuid"
 	jwt "github.com/golang-jwt/jwt/v4"
 	"github.com/netlify/gotrue/crypto"
 	"github.com/netlify/gotrue/models"
@@ -100,21 +99,19 @@ func (a *API) loadInstanceConfig(w http.ResponseWriter, r *http.Request) (contex
 	if claims.InstanceID == "" {
 		return nil, badRequestError("Instance ID is missing")
 	}
-	instanceID, err := uuid.FromString(claims.InstanceID)
-	if err != nil {
-		return nil, badRequestError("Instance ID is not a valid UUID")
-	}
+	// claims.InstanceID is a UUID string - look up instance by UUID.
+	instanceUUID := claims.InstanceID
 
-	logEntrySetField(r, "instance_id", instanceID)
+	logEntrySetField(r, "instance_id", instanceUUID)
 	logEntrySetField(r, "netlify_id", claims.NetlifyID)
-	instance, err := models.GetInstance(a.db, instanceID)
+	instance, err := models.GetInstanceByUUID(a.db, instanceUUID)
 	if err != nil {
 		if models.IsNotFoundError(err) {
 			return nil, notFoundError("Unable to locate site configuration")
 		}
 		return nil, internalServerError("Database error loading instance").WithInternalError(err)
 	}
-	if instance.UUID != uuid.Nil {
+	if instance.UUID != "" {
 		logEntrySetField(r, "site_uuid", instance.UUID)
 	}
 
@@ -131,7 +128,7 @@ func (a *API) loadInstanceConfig(w http.ResponseWriter, r *http.Request) (contex
 	ctx = withNetlifyID(ctx, claims.NetlifyID)
 	ctx = withFunctionHooks(ctx, claims.FunctionHooks)
 
-	ctx, err = WithInstanceConfig(ctx, config, instanceID)
+	ctx, err = WithInstanceConfig(ctx, config, instance.ID)
 	if err != nil {
 		return nil, internalServerError("Error loading instance config").WithInternalError(err)
 	}
@@ -166,7 +163,7 @@ func (a *API) extractOperatorRequest(w http.ResponseWriter, req *http.Request) (
 	if !crypto.SecureCompare(token, a.config.OperatorToken) {
 		return nil, token, unauthorizedError("Request does not include an Operator token")
 	}
-	return withAdminUser(req.Context(), &models.User{ID: uuid.Nil, Email: "operator@netlify.com"}), token, nil
+	return withAdminUser(req.Context(), &models.User{ID: models.SystemUserID, Email: "operator@netlify.com"}), token, nil
 }
 
 func (a *API) requireAdminCredentials(w http.ResponseWriter, req *http.Request) (context.Context, error) {

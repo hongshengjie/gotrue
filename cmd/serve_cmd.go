@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gofrs/uuid"
 	"github.com/netlify/gotrue/api"
 	"github.com/netlify/gotrue/conf"
 	"github.com/netlify/gotrue/storage"
@@ -25,9 +24,8 @@ func serve(globalConfig *conf.GlobalConfiguration, config *conf.Configuration) {
 	if err != nil {
 		logrus.Fatalf("Error opening database: %+v", err)
 	}
-	defer db.Close()
 
-	ctx, err := api.WithInstanceConfig(context.Background(), config, uuid.Nil)
+	ctx, err := api.WithInstanceConfig(context.Background(), config, 0)
 	if err != nil {
 		logrus.Fatalf("Error loading instance config: %+v", err)
 	}

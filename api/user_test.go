@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gofrs/uuid"
 	"github.com/netlify/gotrue/conf"
 	"github.com/netlify/gotrue/models"
 	"github.com/stretchr/testify/assert"
@@ -22,7 +21,7 @@ type UserTestSuite struct {
 	API    *API
 	Config *conf.Configuration
 
-	instanceID uuid.UUID
+	instanceID int64
 }
 
 func TestUser(t *testing.T) {
@@ -45,7 +44,7 @@ func (ts *UserTestSuite) SetupTest() {
 	// Create user
 	u, err := models.NewUser(ts.instanceID, "test@example.com", "password", ts.Config.JWT.Aud, nil)
 	require.NoError(ts.T(), err, "Error creating test user model")
-	require.NoError(ts.T(), ts.API.db.Create(u), "Error saving new test user")
+	require.NoError(ts.T(), u.Create(ts.API.db), "Error saving new test user")
 }
 
 func (ts *UserTestSuite) TestUser_UpdatePassword() {

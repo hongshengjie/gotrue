@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gofrs/uuid"
 	jwt "github.com/golang-jwt/jwt/v4"
 	"github.com/netlify/gotrue/api/provider"
 	"github.com/netlify/gotrue/models"
@@ -61,7 +60,7 @@ func (a *API) ExternalProviderRedirect(w http.ResponseWriter, r *http.Request) e
 				ExpiresAt: jwt.NewNumericDate(time.Now().Add(5 * time.Minute)),
 			},
 			SiteURL:       config.SiteURL,
-			InstanceID:    getInstanceID(ctx).String(),
+			InstanceID:    fmt.Sprintf("%d", getInstanceID(ctx)),
 			NetlifyID:     getNetlifyID(ctx),
 			FunctionHooks: getFunctionHooks(ctx),
 		},
@@ -219,7 +218,7 @@ func (a *API) internalExternalProviderCallback(w http.ResponseWriter, r *http.Re
 	return nil
 }
 
-func (a *API) processInvite(ctx context.Context, tx *storage.Connection, userData *provider.UserProvidedData, instanceID uuid.UUID, inviteToken, providerType string) (*models.User, error) {
+func (a *API) processInvite(ctx context.Context, tx *storage.Connection, userData *provider.UserProvidedData, instanceID int64, inviteToken, providerType string) (*models.User, error) {
 	config := a.getConfig(ctx)
 	user, err := models.FindUserByConfirmationToken(tx, inviteToken)
 	if err != nil {

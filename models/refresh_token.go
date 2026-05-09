@@ -1,12 +1,11 @@
 package models
 
 import (
+	"context"
+	"database/sql"
 	"time"
 
-	"github.com/netlify/gotrue/storage/namespace"
-
-	"github.com/gobuffalo/pop/v5"
-	"github.com/gofrs/uuid"
+	crudrt "github.com/netlify/gotrue/crud/refreshtokens"
 	"github.com/netlify/gotrue/crypto"
 	"github.com/netlify/gotrue/storage"
 	"github.com/pkg/errors"
@@ -14,26 +13,49 @@ import (
 
 // RefreshToken is the database model for refresh tokens.
 type RefreshToken struct {
-	InstanceID uuid.UUID `json:"-" db:"instance_id"`
-	ID         int64     `db:"id"`
-
-	Token string `db:"token"`
-
-	UserID uuid.UUID `db:"user_id"`
-
-	Revoked   bool      `db:"revoked"`
-	CreatedAt time.Time `db:"created_at"`
-	UpdatedAt time.Time `db:"updated_at"`
+	ID         int64     `json:"id"`
+	InstanceID int64     `json:"-"`
+	Token      string    `json:"token"`
+	UserID     int64     `json:"-"`
+	Revoked    bool      `json:"-"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
 }
 
-func (RefreshToken) TableName() string {
-	tableName := "refresh_tokens"
-
-	if namespace.GetNamespace() != "" {
-		return namespace.GetNamespace() + "_" + tableName
+// fromRefreshTokensCrud converts a crud RefreshTokens to a models.RefreshToken.
+func fromRefreshTokensCrud(cr *crudrt.RefreshTokens) *RefreshToken {
+	return &RefreshToken{
+		ID:         cr.Id,
+		InstanceID: cr.InstanceId,
+		Token:      cr.Token,
+		UserID:     cr.UserId,
+		Revoked:    cr.Revoked != 0,
+		CreatedAt:  cr.CreatedAt,
+		UpdatedAt:  cr.UpdatedAt,
 	}
+}
 
-	return tableName
+// findRefreshTokenByToken finds a refresh token by its token string.
+func findRefreshTokenByToken(tx *storage.Connection, token string) (*RefreshToken, error) {
+	ctx := context.Background()
+	cr, err := crudrt.Find(tx.DB()).Where(crudrt.TokenOp.EQ(token)).One(ctx)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, RefreshTokenNotFoundError{}
+		}
+		return nil, errors.Wrap(err, "error finding refresh token")
+	}
+	return fromRefreshTokensCrud(cr), nil
+}
+
+// Expired returns true if the refresh token has expired.
+func (r *RefreshToken) Expired(lifetimeSeconds int) bool {
+	if lifetimeSeconds <= 0 {
+		return false
+	}
+	lifetime := time.Second * time.Duration(lifetimeSeconds)
+	expiresAt := r.CreatedAt.Add(lifetime)
+	return time.Now().After(expiresAt)
 }
 
 // GrantAuthenticatedUser creates a refresh token for the provided user.
@@ -50,10 +72,16 @@ func GrantRefreshTokenSwap(tx *storage.Connection, user *User, token *RefreshTok
 			return errors.Wrap(terr, "error creating audit log entry")
 		}
 
-		token.Revoked = true
-		if terr = tx.UpdateOnly(token, "revoked"); terr != nil {
+		ctx := context.Background()
+		revokedVal := int64(1)
+		if _, terr = crudrt.Update(tx.DB()).
+			SetRevoked(revokedVal).
+			Where(crudrt.IdOp.EQ(token.ID)).
+			Save(ctx); terr != nil {
 			return terr
 		}
+		token.Revoked = true
+
 		newToken, terr = createRefreshToken(rtx, user)
 		return terr
 	})
@@ -61,28 +89,26 @@ func GrantRefreshTokenSwap(tx *storage.Connection, user *User, token *RefreshTok
 }
 
 // Logout deletes all refresh tokens for a user.
-func Logout(tx *storage.Connection, instanceID uuid.UUID, id uuid.UUID) error {
-	return tx.RawQuery("DELETE FROM "+(&pop.Model{Value: RefreshToken{}}).TableName()+" WHERE instance_id = ? AND user_id = ?", instanceID, id).Exec()
+func Logout(tx *storage.Connection, instanceID int64, userID int64) error {
+	return tx.Exec("DELETE FROM refresh_tokens WHERE instance_id = ? AND user_id = ?", instanceID, userID)
 }
 
-func (r *RefreshToken) Expired(lifetimeSeconds int) bool {
-	if lifetimeSeconds <= 0 {
-		return false
-	}
-	lifetime := time.Second * time.Duration(lifetimeSeconds)
-	expiresAt := r.CreatedAt.Add(lifetime)
-	return time.Now().After(expiresAt)
-}
-
+// createRefreshToken creates a new refresh token for the given user.
 func createRefreshToken(tx *storage.Connection, user *User) (*RefreshToken, error) {
-	token := &RefreshToken{
-		InstanceID: user.InstanceID,
-		UserID:     user.ID,
+	now := time.Now()
+	cr := &crudrt.RefreshTokens{
+		InstanceId: user.InstanceID,
+		UserId:     user.ID,
 		Token:      crypto.SecureToken(),
+		Revoked:    0,
+		CreatedAt:  now,
+		UpdatedAt:  now,
 	}
 
-	if err := tx.Create(token); err != nil {
+	ctx := context.Background()
+	_, err := crudrt.Create(tx.DB()).SetRefreshTokens(cr).Save(ctx)
+	if err != nil {
 		return nil, errors.Wrap(err, "error creating refresh token")
 	}
-	return token, nil
+	return fromRefreshTokensCrud(cr), nil
 }

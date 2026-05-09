@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -184,7 +185,7 @@ func (a *API) RefreshTokenGrant(ctx context.Context, w http.ResponseWriter, r *h
 func generateAccessToken(user *models.User, expiresIn time.Duration, secret string) (string, error) {
 	claims := &GoTrueClaims{
 		StandardClaims: jwt.StandardClaims{ //nolint:staticcheck
-			Subject:   user.ID.String(),
+			Subject:   fmt.Sprintf("%d", user.ID),
 			Audience:  user.Aud,
 			ExpiresAt: time.Now().Add(expiresIn).Unix(),
 		},
@@ -202,7 +203,7 @@ func (a *API) issueRefreshToken(ctx context.Context, conn *storage.Connection, u
 	config := a.getConfig(ctx)
 
 	now := time.Now()
-	user.LastSignInAt = &now
+	user.LastSignInAt = now
 
 	var tokenString string
 	var refreshToken *models.RefreshToken

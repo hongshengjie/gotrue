@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/beevik/etree"
-	"github.com/gofrs/uuid"
 	"github.com/netlify/gotrue/conf"
 	"github.com/netlify/gotrue/models"
 	"github.com/russellhaering/gosaml2/types"
@@ -29,7 +28,7 @@ type ExternalSamlTestSuite struct {
 	suite.Suite
 	API        *API
 	Config     *conf.Configuration
-	instanceID uuid.UUID
+	instanceID int64
 }
 
 func TestExternalSaml(t *testing.T) {

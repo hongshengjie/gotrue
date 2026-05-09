@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/gofrs/uuid"
 	"github.com/netlify/gotrue/conf"
 	"github.com/netlify/gotrue/models"
 	"github.com/netlify/gotrue/storage"
@@ -18,40 +17,41 @@ const (
 )
 
 // setupAPIForTest creates a new API to run tests with.
-// Using this function allows us to keep track of the database connection
-// and cleaning up data between tests.
 func setupAPIForTest() (*API, *conf.Configuration, error) {
 	return setupAPIForTestWithCallback(nil)
 }
 
 func setupAPIForMultiinstanceTest() (*API, *conf.Configuration, error) {
-	cb := func(gc *conf.GlobalConfiguration, c *conf.Configuration, conn *storage.Connection) (uuid.UUID, error) {
+	cb := func(gc *conf.GlobalConfiguration, c *conf.Configuration, conn *storage.Connection) (int64, error) {
 		gc.MultiInstanceMode = true
-		return uuid.Nil, nil
+		return 0, nil
 	}
 
 	return setupAPIForTestWithCallback(cb)
 }
 
-func setupAPIForTestForInstance() (*API, *conf.Configuration, uuid.UUID, error) {
-	instanceID := uuid.Must(uuid.NewV4())
-	cb := func(gc *conf.GlobalConfiguration, c *conf.Configuration, conn *storage.Connection) (uuid.UUID, error) {
-		err := conn.Create(&models.Instance{
-			ID:         instanceID,
+func setupAPIForTestForInstance() (*API, *conf.Configuration, int64, error) {
+	var instanceID int64
+	cb := func(gc *conf.GlobalConfiguration, c *conf.Configuration, conn *storage.Connection) (int64, error) {
+		i := &models.Instance{
 			UUID:       testUUID,
 			BaseConfig: c,
-		})
-		return instanceID, err
+		}
+		if err := models.CreateInstance(conn, i); err != nil {
+			return 0, err
+		}
+		instanceID = i.ID
+		return i.ID, nil
 	}
 
-	api, conf, err := setupAPIForTestWithCallback(cb)
+	api, cfg, err := setupAPIForTestWithCallback(cb)
 	if err != nil {
-		return nil, nil, uuid.Nil, err
+		return nil, nil, 0, err
 	}
-	return api, conf, instanceID, nil
+	return api, cfg, instanceID, nil
 }
 
-func setupAPIForTestWithCallback(cb func(*conf.GlobalConfiguration, *conf.Configuration, *storage.Connection) (uuid.UUID, error)) (*API, *conf.Configuration, error) {
+func setupAPIForTestWithCallback(cb func(*conf.GlobalConfiguration, *conf.Configuration, *storage.Connection) (int64, error)) (*API, *conf.Configuration, error) {
 	globalConfig, err := conf.LoadGlobal(apiTestConfig)
 	if err != nil {
 		return nil, nil, err
@@ -68,7 +68,7 @@ func setupAPIForTestWithCallback(cb func(*conf.GlobalConfiguration, *conf.Config
 		return nil, nil, err
 	}
 
-	instanceID := uuid.Nil
+	instanceID := int64(0)
 	if cb != nil {
 		instanceID, err = cb(globalConfig, config, conn)
 		if err != nil {

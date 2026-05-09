@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gofrs/uuid"
 	"github.com/netlify/gotrue/conf"
 	"github.com/netlify/gotrue/models"
 	"github.com/stretchr/testify/assert"
@@ -21,7 +20,7 @@ type RecoverTestSuite struct {
 	API    *API
 	Config *conf.Configuration
 
-	instanceID uuid.UUID
+	instanceID int64
 }
 
 func TestRecover(t *testing.T) {
@@ -44,7 +43,7 @@ func (ts *RecoverTestSuite) SetupTest() {
 	// Create user
 	u, err := models.NewUser(ts.instanceID, "test@example.com", "password", ts.Config.JWT.Aud, nil)
 	require.NoError(ts.T(), err, "Error creating test user model")
-	require.NoError(ts.T(), ts.API.db.Create(u), "Error saving new test user")
+	require.NoError(ts.T(), u.Create(ts.API.db), "Error saving new test user")
 }
 
 func (ts *RecoverTestSuite) TestRecover_UnknownEmailReturnsGenericSuccess() {
@@ -73,8 +72,8 @@ func (ts *RecoverTestSuite) TestRecover_UnknownEmailReturnsGenericSuccess() {
 func (ts *RecoverTestSuite) TestRecover_FirstRecovery() {
 	u, err := models.FindUserByEmailAndAudience(ts.API.db, ts.instanceID, "test@example.com", ts.Config.JWT.Aud)
 	require.NoError(ts.T(), err)
-	u.RecoverySentAt = &time.Time{}
-	require.NoError(ts.T(), ts.API.db.Update(u))
+	u.RecoverySentAt = time.Time{}
+	require.NoError(ts.T(), u.Update(ts.API.db))
 
 	// Request body
 	var buffer bytes.Buffer
@@ -94,15 +93,15 @@ func (ts *RecoverTestSuite) TestRecover_FirstRecovery() {
 	u, err = models.FindUserByEmailAndAudience(ts.API.db, ts.instanceID, "test@example.com", ts.Config.JWT.Aud)
 	require.NoError(ts.T(), err)
 
-	assert.WithinDuration(ts.T(), time.Now(), *u.RecoverySentAt, 1*time.Second)
+	assert.WithinDuration(ts.T(), time.Now(), u.RecoverySentAt, 1*time.Second)
 }
 
 func (ts *RecoverTestSuite) TestRecover_NoEmailSent() {
 	recoveryTime := time.Now().UTC().Add(-5 * time.Minute)
 	u, err := models.FindUserByEmailAndAudience(ts.API.db, ts.instanceID, "test@example.com", ts.Config.JWT.Aud)
 	require.NoError(ts.T(), err)
-	u.RecoverySentAt = &recoveryTime
-	require.NoError(ts.T(), ts.API.db.Update(u))
+	u.RecoverySentAt = recoveryTime
+	require.NoError(ts.T(), u.Update(ts.API.db))
 
 	// Request body
 	var buffer bytes.Buffer
@@ -124,8 +123,8 @@ func (ts *RecoverTestSuite) TestRecover_NewEmailSent() {
 	recoveryTime := time.Now().UTC().Add(-20 * time.Minute)
 	u, err := models.FindUserByEmailAndAudience(ts.API.db, ts.instanceID, "test@example.com", ts.Config.JWT.Aud)
 	require.NoError(ts.T(), err)
-	u.RecoverySentAt = &recoveryTime
-	require.NoError(ts.T(), ts.API.db.Update(u))
+	u.RecoverySentAt = recoveryTime
+	require.NoError(ts.T(), u.Update(ts.API.db))
 
 	// Request body
 	var buffer bytes.Buffer
@@ -146,5 +145,5 @@ func (ts *RecoverTestSuite) TestRecover_NewEmailSent() {
 	require.NoError(ts.T(), err)
 
 	// ensure it sent a new email
-	assert.WithinDuration(ts.T(), time.Now(), *u.RecoverySentAt, 1*time.Second)
+	assert.WithinDuration(ts.T(), time.Now(), u.RecoverySentAt, 1*time.Second)
 }

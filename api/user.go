@@ -3,9 +3,9 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"time"
 
-	"github.com/gofrs/uuid"
 	"github.com/netlify/gotrue/crypto"
 	"github.com/netlify/gotrue/models"
 	"github.com/netlify/gotrue/storage"
@@ -28,7 +28,7 @@ func (a *API) UserGet(w http.ResponseWriter, r *http.Request) error {
 		return badRequestError("Could not read claims")
 	}
 
-	userID, err := uuid.FromString(claims.Subject)
+	userID, err := strconv.ParseInt(claims.Subject, 10, 64)
 	if err != nil {
 		return badRequestError("Could not read User ID claim")
 	}
@@ -63,7 +63,7 @@ func (a *API) UserUpdate(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	claims := getClaims(ctx)
-	userID, err := uuid.FromString(claims.Subject)
+	userID, err := strconv.ParseInt(claims.Subject, 10, 64)
 	if err != nil {
 		return badRequestError("Could not read User ID claim")
 	}
@@ -107,7 +107,7 @@ func (a *API) UserUpdate(w http.ResponseWriter, r *http.Request) error {
 		if params.EmailChangeToken != "" {
 			log.Debugf("Got email change token")
 
-			if user.EmailChangeSentAt != nil {
+			if user.EmailChangeSentAt.Year() > 2000 {
 				expiresAt := user.EmailChangeSentAt.Add(config.Mailer.ConfirmationMaxAge)
 				if time.Now().After(expiresAt) {
 					return unprocessableEntityError("Email change token expired")

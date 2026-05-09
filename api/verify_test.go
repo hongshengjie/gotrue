@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gofrs/uuid"
 	"github.com/netlify/gotrue/conf"
 	"github.com/netlify/gotrue/models"
 	"github.com/stretchr/testify/assert"
@@ -21,7 +20,7 @@ type VerifyTestSuite struct {
 	API    *API
 	Config *conf.Configuration
 
-	instanceID uuid.UUID
+	instanceID int64
 }
 
 func TestVerify(t *testing.T) {
@@ -44,14 +43,14 @@ func (ts *VerifyTestSuite) SetupTest() {
 	// Create user
 	u, err := models.NewUser(ts.instanceID, "test@example.com", "password", ts.Config.JWT.Aud, nil)
 	require.NoError(ts.T(), err, "Error creating test user model")
-	require.NoError(ts.T(), ts.API.db.Create(u), "Error saving new test user")
+	require.NoError(ts.T(), u.Create(ts.API.db), "Error saving new test user")
 }
 
 func (ts *VerifyTestSuite) TestVerify_PasswordRecovery() {
 	u, err := models.FindUserByEmailAndAudience(ts.API.db, ts.instanceID, "test@example.com", ts.Config.JWT.Aud)
 	require.NoError(ts.T(), err)
-	u.RecoverySentAt = &time.Time{}
-	require.NoError(ts.T(), ts.API.db.Update(u))
+	u.RecoverySentAt = time.Time{}
+	require.NoError(ts.T(), u.Update(ts.API.db))
 
 	// Request body
 	var buffer bytes.Buffer
@@ -71,7 +70,7 @@ func (ts *VerifyTestSuite) TestVerify_PasswordRecovery() {
 	u, err = models.FindUserByEmailAndAudience(ts.API.db, ts.instanceID, "test@example.com", ts.Config.JWT.Aud)
 	require.NoError(ts.T(), err)
 
-	assert.WithinDuration(ts.T(), time.Now(), *u.RecoverySentAt, 1*time.Second)
+	assert.WithinDuration(ts.T(), time.Now(), u.RecoverySentAt, 1*time.Second)
 	assert.False(ts.T(), u.IsConfirmed())
 
 	// Send Verify request
@@ -99,8 +98,8 @@ func (ts *VerifyTestSuite) TestVerify_Confirmation_Expired() {
 
 	u.ConfirmationToken = "expired-confirmation-token"
 	expired := time.Now().Add(-48 * time.Hour)
-	u.ConfirmationSentAt = &expired
-	require.NoError(ts.T(), ts.API.db.Update(u))
+	u.ConfirmationSentAt = expired
+	require.NoError(ts.T(), u.Update(ts.API.db))
 
 	var buffer bytes.Buffer
 	require.NoError(ts.T(), json.NewEncoder(&buffer).Encode(map[string]interface{}{
@@ -183,8 +182,8 @@ func (ts *VerifyTestSuite) TestVerify_PasswordRecovery_Expired() {
 	// Set a recovery token that was sent 48 hours ago (beyond 24h default max age)
 	u.RecoveryToken = "expired-test-token"
 	expired := time.Now().Add(-48 * time.Hour)
-	u.RecoverySentAt = &expired
-	require.NoError(ts.T(), ts.API.db.Update(u))
+	u.RecoverySentAt = expired
+	require.NoError(ts.T(), u.Update(ts.API.db))
 
 	var buffer bytes.Buffer
 	require.NoError(ts.T(), json.NewEncoder(&buffer).Encode(map[string]interface{}{

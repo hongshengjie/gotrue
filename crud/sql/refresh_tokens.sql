@@ -1,8 +1,8 @@
 CREATE TABLE `refresh_tokens` (
   `id`          bigint(20)   NOT NULL AUTO_INCREMENT,
-  `instance_id` varchar(255) NOT NULL DEFAULT '',
+  `instance_id` int          NOT NULL DEFAULT 0,
   `token`       varchar(255) NOT NULL DEFAULT '',
-  `user_id`     varchar(255) NOT NULL DEFAULT '',
+  `user_id`     bigint(20)   NOT NULL DEFAULT 0,
   `revoked`     tinyint(1)   NOT NULL DEFAULT 0,
   `created_at`  timestamp    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at`  timestamp    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

@@ -1,79 +1,75 @@
 package storage
 
 import (
-	"net/url"
+	"context"
+	"database/sql"
 
 	_ "github.com/GoogleCloudPlatform/cloudsql-proxy/proxy/dialers/mysql"
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/gobuffalo/pop/v5"
-	"github.com/gobuffalo/pop/v5/columns"
+	"github.com/goflower-io/xsql"
 	"github.com/netlify/gotrue/conf"
-	"github.com/netlify/gotrue/storage/namespace"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 )
 
-// Connection is the interface a storage provider must implement.
+// Connection holds the database connection. db is the current active querier
+// (either *sql.DB or *sql.Tx), and rawDB is always the root *sql.DB.
 type Connection struct {
-	*pop.Connection
+	db    xsql.ExecQuerier
+	rawDB *sql.DB
 }
 
-// Dial will connect to that storage engine
+// DB returns the underlying ExecQuerier (db or tx).
+func (c *Connection) DB() xsql.ExecQuerier {
+	return c.db
+}
+
+// Dial opens a MySQL database connection and returns a Connection.
 func Dial(config *conf.GlobalConfiguration) (*Connection, error) {
 	if config.DB.Driver == "" && config.DB.URL != "" {
-		u, err := url.Parse(config.DB.URL)
-		if err != nil {
-			return nil, errors.Wrap(err, "parsing db connection url")
-		}
-		config.DB.Driver = u.Scheme
+		// derive driver from URL scheme - assume "mysql"
+		config.DB.Driver = "mysql"
 	}
 
-	db, err := pop.NewConnection(&pop.ConnectionDetails{
-		Dialect: config.DB.Driver,
-		URL:     config.DB.URL,
-	})
+	sqlDB, err := sql.Open(config.DB.Driver, config.DB.URL)
 	if err != nil {
 		return nil, errors.Wrap(err, "opening database connection")
 	}
-	if err := db.Open(); err != nil {
+	if err := sqlDB.PingContext(context.Background()); err != nil {
+		sqlDB.Close()
 		return nil, errors.Wrap(err, "checking database connection")
 	}
 
-	if config.DB.Namespace != "" {
-		namespace.SetNamespace(config.DB.Namespace)
-	}
-
-	if logrus.StandardLogger().Level == logrus.DebugLevel {
-		pop.Debug = true
-	}
-
-	return &Connection{db}, nil
+	return &Connection{db: sqlDB, rawDB: sqlDB}, nil
 }
 
+// Transaction runs fn inside a database transaction. If db is already a *sql.Tx,
+// fn is called directly without starting a new transaction.
 func (c *Connection) Transaction(fn func(*Connection) error) error {
-	if c.TX == nil {
-		return c.Connection.Transaction(func(tx *pop.Connection) error {
-			return fn(&Connection{tx})
-		})
+	if _, ok := c.db.(*sql.Tx); ok {
+		// Already inside a transaction – just call fn.
+		return fn(c)
 	}
-	return fn(c)
+
+	tx, err := c.rawDB.BeginTx(context.Background(), nil)
+	if err != nil {
+		return errors.Wrap(err, "beginning transaction")
+	}
+
+	txConn := &Connection{db: tx, rawDB: c.rawDB}
+	if err := fn(txConn); err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+	return tx.Commit()
 }
 
-func getExcludedColumns(model interface{}, includeColumns ...string) ([]string, error) {
-	sm := &pop.Model{Value: model}
+// Exec executes a raw SQL statement.
+func (c *Connection) Exec(query string, args ...interface{}) error {
+	_, err := c.db.ExecContext(context.Background(), query, args...)
+	return err
+}
 
-	// get all columns and remove included to get excluded set
-	cols := columns.ForStructWithAlias(model, sm.TableName(), sm.As, sm.IDField())
-	for _, f := range includeColumns {
-		if _, ok := cols.Cols[f]; !ok {
-			return nil, errors.Errorf("Invalid column name %s", f)
-		}
-		cols.Remove(f)
-	}
-
-	xcols := make([]string, len(cols.Cols))
-	for n := range cols.Cols {
-		xcols = append(xcols, n)
-	}
-	return xcols, nil
+// Close closes the underlying database connection.
+func (c *Connection) Close() error {
+	return c.rawDB.Close()
 }
