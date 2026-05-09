@@ -13,7 +13,7 @@ import (
 
 const (
 	apiTestVersion = "1"
-	apiTestConfig  = "../hack/test.env"
+	apiTestConfig  = "../hack/test.toml"
 )
 
 // setupAPIForTest creates a new API to run tests with.

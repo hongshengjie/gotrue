@@ -1,6 +1,7 @@
 module github.com/netlify/gotrue
 
 require (
+	github.com/BurntSushi/toml v1.6.0
 	github.com/GoogleCloudPlatform/cloudsql-proxy v1.27.0
 	github.com/beevik/etree v1.6.0
 	github.com/bwmarrin/snowflake v0.3.0
@@ -11,8 +12,6 @@ require (
 	github.com/gofrs/uuid v4.4.0+incompatible
 	github.com/golang-jwt/jwt/v4 v4.5.2
 	github.com/imdario/mergo v0.3.16
-	github.com/joho/godotenv v1.3.0
-	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/netlify/mailme v1.1.1
 	github.com/opentracing/opentracing-go v1.2.0
 	github.com/pkg/errors v0.9.1

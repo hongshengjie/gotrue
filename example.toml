@@ -1,0 +1,126 @@
+site_url = "https://my-jam-site.example.com"
+operator_token = "super-secret-operator-token"
+disable_signup = false
+rate_limit_header = ""
+multi_instance_mode = false
+
+[api]
+host = "localhost"
+port = 9999
+endpoint = ""
+request_id_header = ""
+export_secret = ""
+
+[db]
+driver = "mysql"
+url = "root@tcp(127.0.0.1:3306)/gotrue_development?parseTime=true&multiStatements=true"
+namespace = ""
+migrations_path = "./migrations"
+
+[jwt]
+secret = "CHANGE-THIS! VERY IMPORTANT!"
+exp = 3600
+aud = "api.netlify.com"
+admin_group_name = "admin"
+default_group_name = ""
+refresh_token_lifetime = 2592000
+
+[smtp]
+host = "smtp.mandrillapp.com"
+port = 587
+user = "test@example.com"
+pass = "super-secret-password"
+admin_email = "admin@example.com"
+max_frequency = "15m"
+
+[mailer]
+autoconfirm = false
+recovery_max_age = "24h"
+confirmation_max_age = "24h"
+invite_max_age = "168h"
+
+[mailer.subjects]
+invite = ""
+confirmation = "Welcome to GoTrue!"
+recovery = "Reset your GoTrue password!"
+email_change = ""
+
+[mailer.templates]
+invite = ""
+confirmation = ""
+recovery = ""
+email_change = ""
+
+[mailer.url_paths]
+invite = "/"
+confirmation = "/"
+recovery = "/"
+email_change = "/"
+
+[external]
+redirect_url = ""
+
+[external.bitbucket]
+enabled = false
+client_id = ""
+secret = ""
+redirect_uri = ""
+
+[external.github]
+enabled = false
+client_id = ""
+secret = ""
+redirect_uri = ""
+
+[external.gitlab]
+enabled = false
+client_id = ""
+secret = ""
+redirect_uri = ""
+
+[external.google]
+enabled = false
+client_id = ""
+secret = ""
+redirect_uri = "http://localhost:9999/callback"
+
+[external.facebook]
+enabled = false
+client_id = ""
+secret = ""
+redirect_uri = ""
+
+[external.email]
+disabled = false
+
+[external.saml]
+enabled = false
+metadata_url = ""
+api_base = ""
+name = ""
+signing_cert = ""
+signing_key = ""
+
+[log]
+level = "DEBUG"
+file = ""
+disable_colors = false
+quote_empty_fields = false
+ts_format = ""
+
+[tracing]
+enabled = false
+host = "127.0.0.1"
+port = "8126"
+service_name = "gotrue"
+
+[webhook]
+url = "http://register-lambda:3000/"
+secret = "test_secret"
+retries = 5
+timeout_sec = 3
+events = ["validate", "signup", "login", "userdeleted", "usermodified"]
+
+[cookie]
+key = "nf_jwt"
+duration = 86400

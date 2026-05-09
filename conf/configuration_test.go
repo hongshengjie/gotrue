@@ -9,32 +9,55 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestMain(m *testing.M) {
-	defer os.Clearenv()
-	os.Exit(m.Run())
+func writeTempTOML(t *testing.T, content string) string {
+	t.Helper()
+	f, err := os.CreateTemp("", "gotrue-test-*.toml")
+	require.NoError(t, err)
+	t.Cleanup(func() { os.Remove(f.Name()) })
+	_, err = f.WriteString(content)
+	require.NoError(t, err)
+	f.Close()
+	return f.Name()
 }
 
 func TestGlobal(t *testing.T) {
-	os.Setenv("GOTRUE_DB_DRIVER", "mysql")
-	os.Setenv("GOTRUE_DB_DATABASE_URL", "fake")
-	os.Setenv("GOTRUE_OPERATOR_TOKEN", "token")
-	os.Setenv("GOTRUE_API_REQUEST_ID_HEADER", "X-Request-ID")
-	gc, err := LoadGlobal("")
+	path := writeTempTOML(t, `
+operator_token = "token"
+
+[api]
+request_id_header = "X-Request-ID"
+
+[db]
+driver = "mysql"
+url = "fake"
+`)
+	gc, err := LoadGlobal(path)
 	require.NoError(t, err)
 	require.NotNil(t, gc)
 	assert.Equal(t, "X-Request-ID", gc.API.RequestIDHeader)
 }
 
 func TestTracing(t *testing.T) {
-	os.Setenv("GOTRUE_DB_DRIVER", "mysql")
-	os.Setenv("GOTRUE_DB_DATABASE_URL", "fake")
-	os.Setenv("GOTRUE_OPERATOR_TOKEN", "token")
-	os.Setenv("GOTRUE_TRACING_SERVICE_NAME", "identity")
-	os.Setenv("GOTRUE_TRACING_PORT", "8126")
-	os.Setenv("GOTRUE_TRACING_HOST", "127.0.0.1")
-	os.Setenv("GOTRUE_TRACING_TAGS", "tag1:value1,tag2:value2")
+	path := writeTempTOML(t, `
+operator_token = "token"
 
-	gc, _ := LoadGlobal("")
+[db]
+driver = "mysql"
+url = "fake"
+
+[tracing]
+enabled = false
+service_name = "identity"
+port = "8126"
+host = "127.0.0.1"
+
+[tracing.tags]
+tag1 = "value1"
+tag2 = "value2"
+`)
+	gc, err := LoadGlobal(path)
+	require.NoError(t, err)
+
 	tc := opentracing.GlobalTracer()
 
 	assert.Equal(t, opentracing.NoopTracer{}, tc)

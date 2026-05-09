@@ -9,11 +9,11 @@ import (
 )
 
 type TracingConfig struct {
-	Enabled     bool `default:"false"`
-	Host        string
-	Port        string
-	ServiceName string `default:"gotrue" split_words:"true"`
-	Tags        map[string]string
+	Enabled     bool              `toml:"enabled"`
+	Host        string            `toml:"host"`
+	Port        string            `toml:"port"`
+	ServiceName string            `toml:"service_name"`
+	Tags        map[string]string `toml:"tags"`
 }
 
 func (tc *TracingConfig) tracingAddr() string {

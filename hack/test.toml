@@ -1,0 +1,66 @@
+site_url = "https://example.netlify.com"
+operator_token = "foobar"
+disable_signup = false
+
+[api]
+host = "localhost"
+port = 9999
+
+[db]
+driver = "mysql"
+url = "root@tcp(127.0.0.1:3306)/gotrue_test?parseTime=true&sql_mode=TRADITIONAL"
+namespace = "test"
+migrations_path = "./migrations"
+
+[jwt]
+secret = "testsecret"
+exp = 3600
+aud = "api.netlify.com"
+
+[log]
+level = "debug"
+
+[tracing]
+enabled = false
+host = "127.0.0.1"
+port = "8126"
+service_name = "gotrue"
+
+[tracing.tags]
+env = "test"
+
+[external.github]
+enabled = true
+client_id = "testclientid"
+secret = "testsecret"
+redirect_uri = "https://identity.services.netlify.com/callback"
+
+[external.bitbucket]
+enabled = true
+client_id = "testclientid"
+secret = "testsecret"
+redirect_uri = "https://identity.services.netlify.com/callback"
+
+[external.gitlab]
+enabled = true
+client_id = "testclientid"
+secret = "testsecret"
+redirect_uri = "https://identity.services.netlify.com/callback"
+
+[external.google]
+enabled = true
+client_id = "testclientid"
+secret = "testsecret"
+redirect_uri = "https://identity.services.netlify.com/callback"
+
+[external.facebook]
+enabled = true
+client_id = "testclientid"
+secret = "testsecret"
+redirect_uri = "https://identity.services.netlify.com/callback"
+
+[external.saml]
+enabled = true
+metadata_url = ""
+api_base = "http://localhost"
+name = "TestSamlName"
