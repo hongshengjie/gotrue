@@ -105,15 +105,21 @@ func NewUser(instanceID int64, email, password, aud string, userData map[string]
 	}
 
 	id := snowflakeNode.Generate().Int64()
-
 	user := &User{
-		InstanceID:        instanceID,
-		ID:                id,
-		Aud:               aud,
-		Email:             email,
-		UserMetaData:      userData,
-		EncryptedPassword: pw,
+		InstanceID:         instanceID,
+		ID:                 id,
+		Aud:                aud,
+		Email:              email,
+		UserMetaData:       userData,
+		EncryptedPassword:  pw,
+		ConfirmedAt:        zeroTime,
+		ConfirmationSentAt: zeroTime,
+		RecoverySentAt:     zeroTime,
+		EmailChangeSentAt:  zeroTime,
+		LastSignInAt:       zeroTime,
+		InvitedAt:          zeroTime,
 	}
+
 	return user, nil
 }
 
